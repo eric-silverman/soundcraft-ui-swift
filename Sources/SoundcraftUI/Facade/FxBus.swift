@@ -23,29 +23,34 @@ public final class FxBus {
         self.conn = conn
         self.store = store
         self.bus = bus
+    }
 
-        // Cache in object store
+    static func resolve(conn: MixerConnection, store: MixerStore, bus: Int) -> FxBus {
         let storeId = "fxbus\(bus)"
-        if let _: FxBus = store.objectStore.get(storeId) { return }
-        store.objectStore.set(storeId, self)
+        if let cached: FxBus = store.objectStore.get(storeId) {
+            return cached
+        }
+        let instance = FxBus(conn: conn, store: store, bus: bus)
+        store.objectStore.set(storeId, instance)
+        return instance
     }
 
     // MARK: - Channel Factories
 
     public func input(_ channel: Int) -> FxChannel {
-        FxChannel(conn: conn, store: store, channelType: .input, channel: channel, bus: bus)
+        FxChannel.resolve(conn: conn, store: store, channelType: .input, channel: channel, bus: bus)
     }
 
     public func line(_ channel: Int) -> FxChannel {
-        FxChannel(conn: conn, store: store, channelType: .line, channel: channel, bus: bus)
+        FxChannel.resolve(conn: conn, store: store, channelType: .line, channel: channel, bus: bus)
     }
 
     public func player(_ channel: Int) -> FxChannel {
-        FxChannel(conn: conn, store: store, channelType: .player, channel: channel, bus: bus)
+        FxChannel.resolve(conn: conn, store: store, channelType: .player, channel: channel, bus: bus)
     }
 
     public func sub(_ channel: Int) -> FxChannel {
-        FxChannel(conn: conn, store: store, channelType: .sub, channel: channel, bus: bus)
+        FxChannel.resolve(conn: conn, store: store, channelType: .sub, channel: channel, bus: bus)
     }
 
     // MARK: - FX Type

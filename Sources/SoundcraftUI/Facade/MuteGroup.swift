@@ -25,11 +25,16 @@ public final class MuteGroup {
         self.store = store
         self.id = id
         self.groupIndex = id.bitIndex
+    }
 
-        // Cache
+    static func resolve(conn: MixerConnection, store: MixerStore, id: MuteGroupID) -> MuteGroup {
         let storeId = "mutegroup\(id)"
-        if let _: MuteGroup = store.objectStore.get(storeId) { return }
-        store.objectStore.set(storeId, self)
+        if let cached: MuteGroup = store.objectStore.get(storeId) {
+            return cached
+        }
+        let instance = MuteGroup(conn: conn, store: store, id: id)
+        store.objectStore.set(storeId, instance)
+        return instance
     }
 
     public func mute() {

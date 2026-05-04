@@ -17,7 +17,7 @@ import Foundation
 ///
 /// // Control a channel on the master bus
 /// mixer.master.input(1).setFaderLevel(0.5)
-/// mixer.master.input(1).mute()
+/// mixer.master.input(1).enableMute()
 ///
 /// // Control a channel on an AUX bus
 /// mixer.aux(1).input(3).setFaderLevel(0.7)
@@ -88,8 +88,8 @@ public final class SoundcraftUI {
         let c = conn
         let s = store
         self.volume = (
-            solo: VolumeBus(conn: c, store: s, busName: .solovol),
-            headphone: { id in VolumeBus(conn: c, store: s, busName: .hpvol, busId: id) }
+            solo: VolumeBus.resolve(conn: c, store: s, busName: .solovol),
+            headphone: { id in VolumeBus.resolve(conn: c, store: s, busName: .hpvol, busId: id) }
         )
         self.shows = ShowController(conn: conn, store: store)
         self.automix = AutomixController(conn: conn, store: store)
@@ -100,17 +100,17 @@ public final class SoundcraftUI {
 
     /// Get an AUX bus
     public func aux(_ bus: Int) -> AuxBus {
-        AuxBus(conn: conn, store: store, bus: bus)
+        AuxBus.resolve(conn: conn, store: store, bus: bus)
     }
 
     /// Get an FX bus
     public func fx(_ bus: Int) -> FxBus {
-        FxBus(conn: conn, store: store, bus: bus)
+        FxBus.resolve(conn: conn, store: store, bus: bus)
     }
 
     /// Get a mute group
     public func muteGroup(_ id: MuteGroupID) -> MuteGroup {
-        MuteGroup(conn: conn, store: store, id: id)
+        MuteGroup.resolve(conn: conn, store: store, id: id)
     }
 
     /// Unmute all mute groups

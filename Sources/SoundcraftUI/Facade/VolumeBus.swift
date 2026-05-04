@@ -28,11 +28,17 @@ public final class VolumeBus: FadeableChannel {
         self.busName = busName
         self.busId = busId
         self.name = Just(constructReadableVolumeBusName(type: busName, id: busId ?? -1)).eraseToAnyPublisher()
+    }
 
-        // Cache
+    static func resolve(conn: MixerConnection, store: MixerStore,
+                        busName: VolumeBusType, busId: Int? = nil) -> VolumeBus {
         let storeId = "volume-\(busName.rawValue)\(busId ?? -1)"
-        if let _: VolumeBus = store.objectStore.get(storeId) { return }
-        store.objectStore.set(storeId, self)
+        if let cached: VolumeBus = store.objectStore.get(storeId) {
+            return cached
+        }
+        let instance = VolumeBus(conn: conn, store: store, busName: busName, busId: busId)
+        store.objectStore.set(storeId, instance)
+        return instance
     }
 
     public func setFaderLevel(_ value: Double) {

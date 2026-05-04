@@ -49,6 +49,17 @@ public class AuxChannel: SendChannel, PannableChannel {
         .store(in: &auxCancellables)
     }
 
+    static func resolve(conn: MixerConnection, store: MixerStore,
+                        channelType: ChannelType, channel: Int, bus: Int) -> AuxChannel {
+        let storeId = "aux\(bus)\(channelType.rawValue)\(channel)"
+        if let cached: AuxChannel = store.objectStore.get(storeId) {
+            return cached
+        }
+        let instance = AuxChannel(conn: conn, store: store, channelType: channelType, channel: channel, bus: bus)
+        store.objectStore.set(storeId, instance)
+        return instance
+    }
+
     // MARK: - Pan
 
     public func setPan(_ value: Double) {

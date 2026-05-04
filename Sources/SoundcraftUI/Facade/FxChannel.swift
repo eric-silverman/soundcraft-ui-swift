@@ -24,4 +24,15 @@ public class FxChannel: SendChannel {
             }
             .store(in: &fxCancellables)
     }
+
+    static func resolve(conn: MixerConnection, store: MixerStore,
+                        channelType: ChannelType, channel: Int, bus: Int) -> FxChannel {
+        let storeId = "fx\(bus)\(channelType.rawValue)\(channel)"
+        if let cached: FxChannel = store.objectStore.get(storeId) {
+            return cached
+        }
+        let instance = FxChannel(conn: conn, store: store, channelType: channelType, channel: channel, bus: bus)
+        store.objectStore.set(storeId, instance)
+        return instance
+    }
 }
