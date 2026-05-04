@@ -15,59 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract baseline SHA from PARITY.md
-        id: baseline
-        run: |
-          SHA=$(grep -oE 'fmalcher/soundcraft-ui/commit/[a-f0-9]{40}' PARITY.md | head -1 | grep -oE '[a-f0-9]{40}')
-          if [ -z "$SHA" ]; then
-            echo "Could not extract baseline SHA from PARITY.md" >&2
-            exit 1
-          fi
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Baseline: $SHA"
-
-      - name: Fetch upstream HEAD SHA
-        id: upstream
-        run: |
-          SHA=$(curl -fsSL https://api.github.com/repos/fmalcher/soundcraft-ui/commits/main | jq -r '.sha')
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Upstream HEAD: $SHA"
-
-      - name: Diff upstream files since baseline
-        id: diff
-        if: steps.baseline.outputs.sha != steps.upstream.outputs.sha
-        run: |
-          BASE=${{ steps.baseline.outputs.sha }}
-          HEAD=${{ steps.upstream.outputs.sha }}
-
-          CHANGED=$(curl -fsSL "https://api.github.com/repos/fmalcher/soundcraft-ui/compare/${BASE}...${HEAD}" \
-            | jq -r '.files[]?.filename' \
-            | grep -E '^packages/mixer-connection/src/lib/' \
-            | grep -vE '\.spec\.ts$' \
-            || true)
-
-          SPECS=$(curl -fsSL "https://api.github.com/repos/fmalcher/soundcraft-ui/compare/${BASE}...${HEAD}" \
-            | jq -r '.files[]?.filename' \
-            | grep -E '^packages/mixer-connection/src/lib/.*\.spec\.ts$' \
-            || true)
-
-          {
-            echo "changed<<EOF"
-            echo "$CHANGED"
-            echo "EOF"
-            echo "specs<<EOF"
-            echo "$SPECS"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Run parity check
+        id: check
+        run: ./scripts/parity-check.sh
+        continue-on-error: true
 
       - name: Open or update parity drift issue
-        if: steps.baseline.outputs.sha != steps.upstream.outputs.sha
+        if: steps.check.outputs.drift == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ steps.baseline.outputs.sha }}
-          HEAD: ${{ steps.upstream.outputs.sha }}
-          CHANGED: ${{ steps.diff.outputs.changed }}
-          SPECS: ${{ steps.diff.outputs.specs }}
+          BASE: ${{ steps.check.outputs.base }}
+          HEAD: ${{ steps.check.outputs.head }}
+          CHANGED: ${{ steps.check.outputs.changed }}
+          SPECS: ${{ steps.check.outputs.specs }}
         run: |
           TITLE="Parity drift: upstream moved to ${HEAD:0:7}"
           BODY=$(cat <<EOF
@@ -114,6 +74,8 @@ jobs:
             gh issue create --title "$TITLE" --body "$BODY" --label parity-drift
           fi
 
-      - name: No drift
-        if: steps.baseline.outputs.sha == steps.upstream.outputs.sha
-        run: echo "Baseline matches upstream HEAD — no drift."
+      - name: Fail run if script errored
+        if: steps.check.outcome == 'failure' && steps.check.outputs.drift == ''
+        run: |
+          echo "parity-check.sh exited with an error (no drift output captured)" >&2
+          exit 1

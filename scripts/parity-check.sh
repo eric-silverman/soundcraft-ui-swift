@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# Local parity check against fmalcher/soundcraft-ui.
-# Mirrors .github/workflows/parity-watch.yml but prints to stdout instead of opening an issue.
+# Local + CI parity check against fmalcher/soundcraft-ui.
+#
+# Reads the baseline SHA from PARITY.md, fetches upstream HEAD,
+# and reports source/spec files that have changed since.
 #
 # Usage: scripts/parity-check.sh
+#
+# Exit codes:
+#   0 — no drift
+#   1 — error (couldn't read PARITY.md or reach GitHub)
+#   2 — drift detected
+#
+# When run under GitHub Actions ($GITHUB_OUTPUT is set), the script also
+# writes machine-readable outputs: base, head, drift, changed, specs.
 #
 # Requires: curl, jq
 
@@ -24,12 +34,29 @@ fi
 
 HEAD=$(curl -fsSL https://api.github.com/repos/fmalcher/soundcraft-ui/commits/main | jq -r '.sha')
 
-echo "Baseline:     ${BASE:0:7}  ($BASE)"
+emit_output() {
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    {
+      echo "base=$BASE"
+      echo "head=$HEAD"
+      echo "drift=$1"
+      echo "changed<<PARITY_EOF"
+      echo "${2:-}"
+      echo "PARITY_EOF"
+      echo "specs<<PARITY_EOF"
+      echo "${3:-}"
+      echo "PARITY_EOF"
+    } >> "$GITHUB_OUTPUT"
+  fi
+}
+
+echo "Baseline:      ${BASE:0:7}  ($BASE)"
 echo "Upstream HEAD: ${HEAD:0:7}  ($HEAD)"
 echo
 
 if [ "$BASE" = "$HEAD" ]; then
   echo "✓ No drift — baseline matches upstream HEAD."
+  emit_output false "" ""
   exit 0
 fi
 
@@ -69,4 +96,5 @@ echo "  1. Review the compare link above"
 echo "  2. Port relevant changes into matching Swift files (see PARITY.md)"
 echo "  3. Update the baseline SHA in PARITY.md to $HEAD"
 
+emit_output true "$CHANGED" "$SPECS"
 exit 2
