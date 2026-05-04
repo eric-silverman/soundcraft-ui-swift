@@ -18,7 +18,7 @@ jobs:
       - name: Extract baseline SHA from PARITY.md
         id: baseline
         run: |
-          SHA=$(grep -oE '\*\*Upstream baseline:\*\* \[`[a-f0-9]+`\]' PARITY.md | grep -oE '[a-f0-9]{7,}')
+          SHA=$(grep -oE 'fmalcher/soundcraft-ui/commit/[a-f0-9]{40}' PARITY.md | head -1 | grep -oE '[a-f0-9]{40}')
           if [ -z "$SHA" ]; then
             echo "Could not extract baseline SHA from PARITY.md" >&2
             exit 1
@@ -98,7 +98,15 @@ jobs:
           EOF
           )
 
-          EXISTING=$(gh issue list --label parity-drift --state open --json number --jq '.[0].number')
+          for attempt in 1 2 3; do
+            if EXISTING=$(gh issue list --label parity-drift --state open --json number --jq '.[0].number' 2>&1); then
+              break
+            fi
+            echo "Attempt $attempt failed: $EXISTING" >&2
+            sleep $((attempt * 5))
+            EXISTING=""
+          done
+
           if [ -n "$EXISTING" ]; then
             gh issue edit "$EXISTING" --title "$TITLE" --body "$BODY"
             echo "Updated issue #$EXISTING"
