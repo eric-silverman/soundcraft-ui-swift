@@ -4,6 +4,13 @@ Swift package for controlling Soundcraft UI series mixers (`UI12`, `UI16`, and `
 
 `SoundcraftUI` is a native Swift port of the TypeScript library [`fmalcher/soundcraft-ui`](https://github.com/fmalcher/soundcraft-ui). It targets iOS 16+ and macOS 13+, uses Combine for reactive state, and includes VU/RTA processors plus Swift-only DSP and global-settings facades.
 
+## Documentation
+
+- Published API and guide docs: [eric-silverman.github.io/soundcraft-ui-swift](https://eric-silverman.github.io/soundcraft-ui-swift/)
+- Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Upstream parity tracking: [`PARITY.md`](PARITY.md)
+- DocC source catalog: [`Sources/SoundcraftUI/SoundcraftUI.docc`](Sources/SoundcraftUI/SoundcraftUI.docc)
+
 ## Installation
 
 Add the package as a local or remote Swift Package Manager dependency.
@@ -46,13 +53,6 @@ mixer.store.state
     }
     .store(in: &cancellables)
 ```
-
-## Documentation
-
-- Published API and guide documentation: `https://eric-silverman.github.io/soundcraft-ui-swift/`
-- DocC source catalog: [`Sources/SoundcraftUI/SoundcraftUI.docc`](Sources/SoundcraftUI/SoundcraftUI.docc)
-- Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Upstream parity tracking: [`PARITY.md`](PARITY.md)
 
 ## Highlights
 

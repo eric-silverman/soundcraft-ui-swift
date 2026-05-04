@@ -1,6 +1,7 @@
 .build/
 .swiftpm/
 .claude/settings.local.json
+.playwright-mcp/
 *.o
 *.d
 *.swp
