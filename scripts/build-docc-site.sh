@@ -38,5 +38,23 @@ xcrun docc convert "$CATALOG_PATH" \
   --source-service github \
   --source-service-base-url "$SOURCE_SERVICE_BASE_URL"
 
+cat > "$SITE_DIR/index.html" <<EOF
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=/${HOSTING_BASE_PATH#/}/documentation/soundcraftui/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SoundcraftUI Documentation</title>
+  <script>
+    window.location.replace("/${HOSTING_BASE_PATH#/}/documentation/soundcraftui/");
+  </script>
+</head>
+<body>
+  <p><a href="/${HOSTING_BASE_PATH#/}/documentation/soundcraftui/">Open SoundcraftUI documentation</a></p>
+</body>
+</html>
+EOF
+
 touch "$SITE_DIR/.nojekyll"
 echo "DocC site built at: $SITE_DIR"
