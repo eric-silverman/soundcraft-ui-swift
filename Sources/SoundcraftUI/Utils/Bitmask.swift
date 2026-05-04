@@ -1,0 +1,28 @@
+import Foundation
+
+/// Bitmask manipulation utilities for mute groups
+public enum Bitmask {
+    /// Toggle a bit at the given index (right to left)
+    public static func toggleBit(_ value: Int, at bitIndex: Int) -> Int {
+        guard bitIndex >= 0 else { return value }
+        return value ^ (1 << bitIndex)
+    }
+
+    /// Clear (set to 0) a bit at the given index
+    public static func clearBit(_ value: Int, at bitIndex: Int) -> Int {
+        guard bitIndex >= 0 else { return value }
+        return value & ~(1 << bitIndex)
+    }
+
+    /// Set (set to 1) a bit at the given index
+    public static func setBit(_ value: Int, at bitIndex: Int) -> Int {
+        guard bitIndex >= 0 else { return value }
+        return value | (1 << bitIndex)
+    }
+
+    /// Get the value (0 or 1) of a bit at the given index
+    public static func getValueOfBit(_ value: Int, at bitIndex: Int) -> Int {
+        guard bitIndex >= 0 else { return value }
+        return (value & (1 << bitIndex)) != 0 ? 1 : 0
+    }
+}
