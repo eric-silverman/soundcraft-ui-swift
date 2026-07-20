@@ -14,13 +14,13 @@ public func roundToThreeDecimals(_ value: Double) -> Double {
 /// Upstream stores `SETD` values via JS `Number()`, which has no Int/Double distinction;
 /// this preserves it. `SETS` values are kept as raw strings by the store and never pass here.
 public func transformStringValue(_ value: String) -> Any {
-    // Match integer: optional minus, digits only
-    if value.range(of: #"^-?\d+$"#, options: .regularExpression) != nil {
-        return Int(value) ?? value
+    // Integer (keep the Int/Double distinction upstream loses under JS `Number()`)
+    if value.range(of: #"^-?\d+$"#, options: .regularExpression) != nil, let intValue = Int(value) {
+        return intValue
     }
-    // Match float: digits.digits
-    if value.range(of: #"^\d+\.\d+$"#, options: .regularExpression) != nil {
-        return Double(value) ?? value
+    // Float, including negative decimals (e.g. `-0.25`)
+    if value.range(of: #"^-?\d+\.\d+$"#, options: .regularExpression) != nil, let doubleValue = Double(value) {
+        return doubleValue
     }
     return value
 }

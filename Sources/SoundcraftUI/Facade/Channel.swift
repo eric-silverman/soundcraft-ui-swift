@@ -104,7 +104,7 @@ public class Channel: FadeableChannel {
     }
 
     func setFaderLevelRaw(_ value: Double) {
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setd("\(cid).\(faderLevelCommand)", value)
         }
     }
@@ -152,7 +152,7 @@ public class Channel: FadeableChannel {
     // MARK: - Mute
 
     public func setMute(_ value: Bool) {
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setdBool("\(cid).mute", value)
         }
     }

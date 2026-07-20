@@ -141,6 +141,34 @@ final class StateAndConnectionTests: MixerTestCase {
         XCTAssertEqual(all, ["PING", "SETD^a^1", "SETD^b^2"])
     }
 
+    func testDuplicateConnectDoesNotReopenSocketOrDoubleProcessInbound() {
+        let transport = MockWebSocketTransport()
+        let connection = MixerConnection(ip: "127.0.0.1", transport: transport)
+
+        connection.connect()
+        XCTAssertEqual(connection.currentStatus, .open)
+        XCTAssertEqual(transport.connectCallCount, 1)
+
+        // a duplicate connect() while already open must be a no-op (no second socket)
+        connection.connect()
+        XCTAssertEqual(connection.currentStatus, .open)
+        XCTAssertEqual(transport.connectCallCount, 1)
+
+        // inbound is processed exactly once (onMessage is wired a single time in init)
+        var messages = [String]()
+        connection.inbound
+            .sink { messages.append($0) }
+            .store(in: &cancellables)
+
+        transport.simulateInbound("SETD^i.0.mix^0.5")
+        XCTAssertEqual(messages, ["SETD^i.0.mix^0.5"])
+
+        // after an explicit disconnect, connect() opens again
+        connection.disconnect()
+        connection.connect()
+        XCTAssertEqual(transport.connectCallCount, 2)
+    }
+
     func testMixerConnectionReconnectsAfterExplicitReconnectCall() {
         let transport = MockWebSocketTransport()
         let connection = MixerConnection(ip: "127.0.0.1", transport: transport)

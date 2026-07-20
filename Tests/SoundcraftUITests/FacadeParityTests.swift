@@ -162,6 +162,35 @@ final class FacadeParityTests: MixerTestCase {
         assertSent("SETD^i.0.mtkrec^0")
     }
 
+    func testStereoLinkMirrorsSelfFirstThenNeighbour() {
+        // link input 3 & 4 (input 3 is first in the link)
+        let channel = MasterChannel(conn: conn, store: store, channelType: .input, channel: 3)
+        transport.simulateSetd(path: "i.2.stereoIndex", value: "0")
+        drainMainQueue()
+
+        transport.sentMessages.removeAll()
+        channel.setFaderLevel(0.5)
+        let mixSends = transport.sentCommands.filter { $0.hasPrefix("SETD^i.") && $0.contains(".mix^") }
+        // self (i.2) first, then linked neighbour (i.3) — matches upstream ordering
+        XCTAssertEqual(mixSends, ["SETD^i.2.mix^0.5", "SETD^i.3.mix^0.5"])
+
+        transport.sentMessages.removeAll()
+        channel.setMute(true)
+        let muteSends = transport.sentCommands.filter { $0.hasPrefix("SETD^i.") && $0.contains(".mute^") }
+        XCTAssertEqual(muteSends, ["SETD^i.2.mute^1", "SETD^i.3.mute^1"])
+    }
+
+    func testStereoLinkMasterPanIsNotMirrored() {
+        let channel = MasterChannel(conn: conn, store: store, channelType: .input, channel: 3)
+        transport.simulateSetd(path: "i.2.stereoIndex", value: "0")
+        drainMainQueue()
+
+        transport.sentMessages.removeAll()
+        channel.setPan(0.5)
+        let panSends = transport.sentCommands.filter { $0.contains(".pan^") }
+        XCTAssertEqual(panSends, ["SETD^i.2.pan^0.5"])
+    }
+
     func testMasterBusRelativeControlsUseCurrentState() {
         let master = MasterBus(conn: conn, store: store)
 

@@ -68,7 +68,7 @@ public class AuxChannel: SendChannel, PannableChannel, PostProcessableChannel {
 
     public func setPan(_ value: Double) {
         let clamped = roundToThreeDecimals(clamp(value, min: 0, max: 1))
-        for cid in auxLinkChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + auxLinkChannelIds {
             conn.setd("\(cid).pan", clamped)
         }
     }
@@ -82,7 +82,7 @@ public class AuxChannel: SendChannel, PannableChannel, PostProcessableChannel {
     // MARK: - Post Proc
 
     public func setPostProc(_ value: Bool) {
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setdBool("\(cid).postproc", value)
         }
     }

@@ -36,6 +36,21 @@ final class BitmaskTests: XCTestCase {
         XCTAssertFalse(Bitmask.getValueOfBit(42, at: -1))
     }
 
+    func testDefaultNameHelpers() {
+        XCTAssertEqual(getDefaultChannelName(type: .input, channel: 6), "CH 6")
+        XCTAssertEqual(getDefaultChannelName(type: .aux, channel: 5), "AUX 5")
+        XCTAssertEqual(getDefaultChannelName(type: .line, channel: 2), "LINE IN R")
+        XCTAssertEqual(getDefaultMatrixName(channel: 5), "MTX 5")
+        XCTAssertEqual(getDefaultVolumeBusName(type: .hpvol, id: 2), "HEADPHONE 2 LEVEL")
+        XCTAssertEqual(getDefaultVolumeBusName(type: .solovol, id: 1), "SOLO LEVEL")
+    }
+
+    func testGetLinkedChannelNumberReturnsNilWhenUnlinked() {
+        XCTAssertEqual(getLinkedChannelNumber(4, stereoIndex: 1), 3)
+        XCTAssertEqual(getLinkedChannelNumber(4, stereoIndex: 0), 5)
+        XCTAssertNil(getLinkedChannelNumber(4, stereoIndex: -1))
+    }
+
     func testMuteGroupBitPositions() {
         // Group 1 -> bit 0
         XCTAssertEqual(MuteGroupID.group(1).bitIndex, 0)

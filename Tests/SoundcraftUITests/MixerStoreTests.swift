@@ -70,10 +70,48 @@ final class MixerStoreTests: XCTestCase {
         XCTAssertEqual(result as! Double, 0.76470588235, accuracy: 0.0000001)
     }
 
+    func testTransformStringValue_negativeFloat() {
+        let result = transformStringValue("-0.25")
+        XCTAssertTrue(result is Double)
+        XCTAssertEqual(result as! Double, -0.25, accuracy: 0.0000001)
+    }
+
     func testTransformStringValue_string() {
         let result = transformStringValue("VOCALS")
         XCTAssertTrue(result is String)
         XCTAssertEqual(result as? String, "VOCALS")
+    }
+
+    func testSetdConvertsIntFloatAndNegativeValues() {
+        let expectation = XCTestExpectation(description: "SETD numeric conversion")
+
+        transport.simulateSetd(path: "i.3.mute", value: "1")
+        transport.simulateSetd(path: "i.3.mix", value: "0.5236732")
+        transport.simulateSetd(path: "i.3.pan", value: "-0.25")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let state = self.store.state.value
+            XCTAssertEqual(state["i.3.mute"] as? Int, 1)
+            XCTAssertEqual(state["i.3.mix"] as? Double, 0.5236732)
+            XCTAssertEqual(state["i.3.pan"] as? Double, -0.25)
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
+    }
+
+    func testSetsKeepsValueContainingSeparator() {
+        let expectation = XCTestExpectation(description: "SETS keeps ^ in value")
+
+        transport.simulateInbound("SETS^i.3.name^foo^bar")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let state = self.store.state.value
+            XCTAssertEqual(state["i.3.name"] as? String, "foo^bar")
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
     }
 
     func testSetsMessages() {

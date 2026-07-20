@@ -97,7 +97,7 @@ public class MasterChannel: Channel, PannableChannel {
     // MARK: - Solo
 
     public func setSolo(_ value: Bool) {
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setdBool("\(cid).solo", value)
         }
     }
@@ -135,7 +135,7 @@ public class MasterChannel: Channel, PannableChannel {
         case .b: groupValue = 1
         case nil: groupValue = -1
         }
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setd("\(cid).amixgroup", groupValue)
         }
     }
@@ -144,7 +144,7 @@ public class MasterChannel: Channel, PannableChannel {
 
     public func automixSetWeight(_ value: Double) {
         let clamped = clamp(value, min: 0, max: 1)
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setd("\(cid).amix", clamped)
         }
     }

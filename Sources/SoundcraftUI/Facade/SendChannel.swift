@@ -22,7 +22,7 @@ public class SendChannel: Channel {
     // MARK: - Pre/Post
 
     public func setPost(_ value: Bool) {
-        for cid in linkedChannelIds + [fullChannelId] {
+        for cid in [fullChannelId] + linkedChannelIds {
             conn.setdBool("\(cid).post", value)
         }
     }
