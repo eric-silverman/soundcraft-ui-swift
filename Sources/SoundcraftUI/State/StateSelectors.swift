@@ -3,6 +3,22 @@ import Foundation
 
 /// Helper extensions on MixerStore for common state selections
 extension MixerStore {
+    // MARK: - Boolean helper
+
+    /// Select a boolean (on/off) value from state. The underlying numeric `0`/`1`
+    /// value is coerced to `false`/`true`.
+    public func selectBoolean(path: String, default defaultValue: Bool = false) -> AnyPublisher<Bool, Never> {
+        state
+            .map { dict -> Bool in
+                if let value = dict[path] as? Int { return value != 0 }
+                if let value = dict[path] as? Double { return value != 0 }
+                if let value = dict[path] as? Bool { return value }
+                return defaultValue
+            }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+
     // MARK: - Master
 
     /// Master fader level (0..1)
@@ -15,9 +31,14 @@ extension MixerStore {
         select(path: "m.pan", default: 0.5)
     }
 
-    /// Master dim (0 or 1)
-    public var masterDim: AnyPublisher<Int, Never> {
-        select(path: "m.dim", default: 0)
+    /// Master dim state
+    public var masterDim: AnyPublisher<Bool, Never> {
+        selectBoolean(path: "m.dim")
+    }
+
+    /// Whether an AUX bus is currently configured as a matrix bus (Ui24R only)
+    public func matrix(bus: Int) -> AnyPublisher<Bool, Never> {
+        selectBoolean(path: joinStatePath("a", bus - 1, "matrix"))
     }
 
     /// Master delay (L or R) in milliseconds
@@ -39,28 +60,28 @@ extension MixerStore {
         switch busType {
         case .master:
             path = joinStatePath(channelType.rawValue, channel - 1, "mix")
-        case .aux, .fx:
+        case .aux, .fx, .mtx:
             path = joinStatePath(channelType.rawValue, channel - 1, busType.rawValue, bus - 1, "value")
         }
         return select(path: path, default: 0.0)
     }
 
-    /// Mute value for a channel
-    public func muteValue(channelType: ChannelType, channel: Int, busType: BusType, bus: Int = 1) -> AnyPublisher<Int, Never> {
+    /// Mute state for a channel
+    public func muteValue(channelType: ChannelType, channel: Int, busType: BusType, bus: Int = 1) -> AnyPublisher<Bool, Never> {
         let path: String
         switch busType {
         case .master:
             path = joinStatePath(channelType.rawValue, channel - 1, "mute")
-        case .aux, .fx:
+        case .aux, .fx, .mtx:
             path = joinStatePath(channelType.rawValue, channel - 1, busType.rawValue, bus - 1, "mute")
         }
-        return select(path: path, default: 0)
+        return selectBoolean(path: path)
     }
 
-    /// Solo value for a channel (master bus only)
-    public func soloValue(channelType: ChannelType, channel: Int) -> AnyPublisher<Int, Never> {
+    /// Solo state for a channel (master bus only)
+    public func soloValue(channelType: ChannelType, channel: Int) -> AnyPublisher<Bool, Never> {
         let path = joinStatePath(channelType.rawValue, channel - 1, "solo")
-        return select(path: path, default: 0)
+        return selectBoolean(path: path)
     }
 
     /// Pan value for a channel
@@ -69,7 +90,7 @@ extension MixerStore {
         switch busType {
         case .master:
             path = joinStatePath(channelType.rawValue, channel - 1, "pan")
-        case .aux, .fx:
+        case .aux, .fx, .mtx:
             path = joinStatePath(channelType.rawValue, channel - 1, busType.rawValue, bus - 1, "pan")
         }
         return select(path: path, default: 0.0)
@@ -84,16 +105,16 @@ extension MixerStore {
         return select(path: path, default: -1)
     }
 
-    /// Post value for a send channel
-    public func postValue(channelType: ChannelType, channel: Int, busType: BusType, bus: Int) -> AnyPublisher<Int, Never> {
+    /// Post (PRE/POST) state for a send channel
+    public func postValue(channelType: ChannelType, channel: Int, busType: BusType, bus: Int) -> AnyPublisher<Bool, Never> {
         let path = joinStatePath(channelType.rawValue, channel - 1, busType.rawValue, bus - 1, "post")
-        return select(path: path, default: 0)
+        return selectBoolean(path: path)
     }
 
-    /// Post-proc value for an aux channel
-    public func auxPostProc(channelType: ChannelType, channel: Int, aux: Int) -> AnyPublisher<Int, Never> {
-        let path = joinStatePath(channelType.rawValue, channel - 1, "aux", aux - 1, "postproc")
-        return select(path: path, default: 0)
+    /// Post-proc (PRE/POST PROC) state for a send channel
+    public func postProc(channelType: ChannelType, channel: Int, busType: BusType, bus: Int) -> AnyPublisher<Bool, Never> {
+        let path = joinStatePath(channelType.rawValue, channel - 1, busType.rawValue, bus - 1, "postproc")
+        return selectBoolean(path: path)
     }
 
     /// Delay value for a master channel in ms
@@ -110,10 +131,10 @@ extension MixerStore {
 
     // MARK: - Hardware
 
-    /// Phantom power for a hardware channel
-    public func phantom(channel: Int, key: String) -> AnyPublisher<Int, Never> {
+    /// Phantom power state for a hardware channel
+    public func phantom(channel: Int, key: String) -> AnyPublisher<Bool, Never> {
         let path = joinStatePath(key, channel - 1, "phantom")
-        return select(path: path, default: 0)
+        return selectBoolean(path: path)
     }
 
     /// Gain for a hardware channel (linear 0..1)

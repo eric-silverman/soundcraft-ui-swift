@@ -10,16 +10,17 @@ public func roundToThreeDecimals(_ value: Double) -> Double {
     (value * 1000).rounded() / 1000
 }
 
-/// Transform a string value to Int, Double, or keep as String.
-/// Matches the TS `transformStringValue` behavior.
+/// Transform a numeric `SETD` string value to Int or Double (falling back to String).
+/// Upstream stores `SETD` values via JS `Number()`, which has no Int/Double distinction;
+/// this preserves it. `SETS` values are kept as raw strings by the store and never pass here.
 public func transformStringValue(_ value: String) -> Any {
-    // Match integer: optional minus, digits only
-    if value.range(of: #"^-?\d+$"#, options: .regularExpression) != nil {
-        return Int(value) ?? value
+    // Integer (keep the Int/Double distinction upstream loses under JS `Number()`)
+    if value.range(of: #"^-?\d+$"#, options: .regularExpression) != nil, let intValue = Int(value) {
+        return intValue
     }
-    // Match float: digits.digits
-    if value.range(of: #"^\d+\.\d+$"#, options: .regularExpression) != nil {
-        return Double(value) ?? value
+    // Float, including negative decimals (e.g. `-0.25`)
+    if value.range(of: #"^-?\d+\.\d+$"#, options: .regularExpression) != nil, let doubleValue = Double(value) {
+        return doubleValue
     }
     return value
 }
@@ -53,8 +54,9 @@ public func joinStatePath(_ components: Any...) -> String {
     components.map { "\($0)" }.joined(separator: ".")
 }
 
-/// Construct a human-readable default name for a channel
-public func constructReadableChannelName(type: ChannelType, channel: Int) -> String {
+/// Construct the default human-readable name for a channel,
+/// based on the default labels from the web interface
+public func getDefaultChannelName(type: ChannelType, channel: Int) -> String {
     switch type {
     case .input: return "CH \(channel)"
     case .aux: return "AUX \(channel)"
@@ -66,10 +68,36 @@ public func constructReadableChannelName(type: ChannelType, channel: Int) -> Str
     }
 }
 
-/// Construct a readable name for a volume bus
-public func constructReadableVolumeBusName(type: VolumeBusType, id: Int) -> String {
+/// Construct the default human-readable name for a matrix bus output (Ui24R only).
+/// A matrix lives in the same `a` slot as the AUX it replaced, but uses a different
+/// default label.
+public func getDefaultMatrixName(channel: Int) -> String {
+    "MTX \(channel)"
+}
+
+/// Construct the default human-readable name for a volume bus (solo or headphones),
+/// based on the default labels from the web interface
+public func getDefaultVolumeBusName(type: VolumeBusType, id: Int) -> String {
     switch type {
     case .solovol: return "SOLO LEVEL"
     case .hpvol: return "HEADPHONE \(id) LEVEL"
     }
+}
+
+// MARK: - Channel ID construction
+
+/// Construct the channel id for a master channel, e.g. `i.0`
+public func constructMasterChannelId(_ channelType: ChannelType, _ channel: Int) -> String {
+    "\(channelType.rawValue).\(channel - 1)"
+}
+
+/// Construct the channel id for a send (AUX/FX) channel, e.g. `i.0.aux.2`
+public func constructSendChannelId(_ channelType: ChannelType, _ channel: Int,
+                                   _ busType: BusType, _ bus: Int) -> String {
+    "\(channelType.rawValue).\(channel - 1).\(busType.rawValue).\(bus - 1)"
+}
+
+/// Construct the channel id for a matrix source, e.g. `a.0.mtx.6`
+public func constructMtxChannelId(_ channelType: ChannelType, _ channel: Int, _ bus: Int) -> String {
+    "\(channelType.rawValue).\(channel - 1).mtx.\(bus - 1)"
 }

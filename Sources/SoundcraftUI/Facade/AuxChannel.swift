@@ -2,13 +2,18 @@ import Combine
 import Foundation
 
 /// A channel on an AUX bus with pan and post-proc control
-public class AuxChannel: SendChannel, PannableChannel {
+public class AuxChannel: SendChannel, PannableChannel, PostProcessableChannel {
     private var auxCancellables = Set<AnyCancellable>()
     private var auxLinkChannelIds: [String] = []
 
     /// Pan value (0..1) - only works for stereo-linked AUX buses
     public lazy var pan: AnyPublisher<Double, Never> = {
         store.panValue(channelType: channelType, channel: channel, busType: busType, bus: bus)
+    }()
+
+    /// PRE/POST PROC state (`false` for PRE PROC, `true` for POST PROC)
+    public lazy var postProc$: AnyPublisher<Bool, Never> = {
+        store.postProc(channelType: channelType, channel: channel, busType: busType, bus: bus)
     }()
 
     init(conn: MixerConnection, store: MixerStore,
@@ -21,8 +26,7 @@ public class AuxChannel: SendChannel, PannableChannel {
             store.stereoIndex(channelType: .aux, channel: bus),
             stereoIndex
         )
-        .map { [weak self] auxIndex, channelIndex -> (all: [String], auxLink: [String]) in
-            guard let self else { return ([], []) }
+        .map { auxIndex, channelIndex -> (all: [String], auxLink: [String]) in
             let linkedAuxNo = getLinkedChannelNumber(bus, stereoIndex: auxIndex)
             let linkedChNo = getLinkedChannelNumber(channel, stereoIndex: channelIndex)
 
@@ -30,15 +34,15 @@ public class AuxChannel: SendChannel, PannableChannel {
             var auxLinkIds: [String] = []
 
             if let linkedChNo {
-                allChannelIds.append(self.constructSendChannelId(channelType, linkedChNo, .aux, bus))
+                allChannelIds.append(constructSendChannelId(channelType, linkedChNo, .aux, bus))
             }
             if let linkedAuxNo {
-                let cid = self.constructSendChannelId(channelType, channel, .aux, linkedAuxNo)
+                let cid = constructSendChannelId(channelType, channel, .aux, linkedAuxNo)
                 allChannelIds.append(cid)
                 auxLinkIds.append(cid)
             }
             if let linkedAuxNo, let linkedChNo {
-                allChannelIds.append(self.constructSendChannelId(channelType, linkedChNo, .aux, linkedAuxNo))
+                allChannelIds.append(constructSendChannelId(channelType, linkedChNo, .aux, linkedAuxNo))
             }
             return (allChannelIds, auxLinkIds)
         }
@@ -64,8 +68,8 @@ public class AuxChannel: SendChannel, PannableChannel {
 
     public func setPan(_ value: Double) {
         let clamped = roundToThreeDecimals(clamp(value, min: 0, max: 1))
-        for cid in auxLinkChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).pan^\(clamped)")
+        for cid in [fullChannelId] + auxLinkChannelIds {
+            conn.setd("\(cid).pan", clamped)
         }
     }
 
@@ -77,12 +81,12 @@ public class AuxChannel: SendChannel, PannableChannel {
 
     // MARK: - Post Proc
 
-    public func setPostProc(_ value: Int) {
-        for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).postproc^\(value)")
+    public func setPostProc(_ value: Bool) {
+        for cid in [fullChannelId] + linkedChannelIds {
+            conn.setdBool("\(cid).postproc", value)
         }
     }
 
-    public func postProc() { setPostProc(1) }
-    public func preProc() { setPostProc(0) }
+    public func postProc() { setPostProc(true) }
+    public func preProc() { setPostProc(false) }
 }

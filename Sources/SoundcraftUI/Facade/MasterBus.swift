@@ -25,8 +25,8 @@ public final class MasterBus: FadeableChannel, PannableChannel {
         store.masterPan
     }()
 
-    /// Master dim state (0 or 1)
-    public lazy var dim$: AnyPublisher<Int, Never> = {
+    /// Master dim state
+    public lazy var dim$: AnyPublisher<Bool, Never> = {
         store.masterDim
     }()
 
@@ -61,6 +61,14 @@ public final class MasterBus: FadeableChannel, PannableChannel {
 
     public func aux(_ channel: Int) -> DelayableMasterChannel {
         DelayableMasterChannel.resolveDelayable(conn: conn, store: store, channelType: .aux, channel: channel)
+    }
+
+    /// Get a matrix output channel on the master bus.
+    /// A matrix occupies the same slot as the AUX it replaced, so this is an alias
+    /// for `aux(channel)` that reads more clearly when controlling a matrix output.
+    /// Matrix buses are only available on the Ui24R.
+    public func mtx(_ channel: Int) -> DelayableMasterChannel {
+        aux(channel)
     }
 
     public func fx(_ channel: Int) -> MasterChannel {
@@ -130,16 +138,16 @@ public final class MasterBus: FadeableChannel, PannableChannel {
 
     // MARK: - Dim
 
-    public func setDim(_ value: Int) {
-        conn.sendMessage("SETD^m.dim^\(value)")
+    public func setDim(_ value: Bool) {
+        conn.setdBool("m.dim", value)
     }
 
-    public func enableDim() { setDim(1) }
-    public func disableDim() { setDim(0) }
+    public func enableDim() { setDim(true) }
+    public func disableDim() { setDim(false) }
 
     public func toggleDim() {
         dim$.first()
-            .sink { [weak self] v in self?.setDim(v ^ 1) }
+            .sink { [weak self] v in self?.setDim(!v) }
             .store(in: &cancellables)
     }
 

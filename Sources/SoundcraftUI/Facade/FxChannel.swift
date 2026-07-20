@@ -12,12 +12,11 @@ public class FxChannel: SendChannel {
 
         // Track stereo linking
         stereoIndex
-            .map { [weak self] index -> [String] in
-                guard let self,
-                      let linked = getLinkedChannelNumber(channel, stereoIndex: index) else {
+            .map { index -> [String] in
+                guard let linked = getLinkedChannelNumber(channel, stereoIndex: index) else {
                     return []
                 }
-                return [self.constructSendChannelId(channelType, linked, .fx, bus)]
+                return [constructSendChannelId(channelType, linked, .fx, bus)]
             }
             .sink { [weak self] ids in
                 self?.linkedChannelIds = ids

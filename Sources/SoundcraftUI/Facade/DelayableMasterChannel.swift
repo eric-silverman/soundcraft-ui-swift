@@ -36,7 +36,7 @@ public class DelayableMasterChannel: MasterChannel {
     /// Set delay in milliseconds
     public func setDelay(_ ms: Double) {
         let value = sanitizeDelayValue(ms, maximumMs: delayMaxValueMs)
-        conn.sendMessage("SETD^\(fullChannelId).delay^\(value)")
+        conn.setd("\(fullChannelId).delay", value)
     }
 
     /// Change delay relatively

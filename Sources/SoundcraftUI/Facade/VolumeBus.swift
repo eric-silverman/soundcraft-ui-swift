@@ -27,7 +27,7 @@ public final class VolumeBus: FadeableChannel {
         self.store = store
         self.busName = busName
         self.busId = busId
-        self.name = Just(constructReadableVolumeBusName(type: busName, id: busId ?? -1)).eraseToAnyPublisher()
+        self.name = Just(getDefaultVolumeBusName(type: busName, id: busId ?? -1)).eraseToAnyPublisher()
     }
 
     static func resolve(conn: MixerConnection, store: MixerStore,
@@ -44,7 +44,7 @@ public final class VolumeBus: FadeableChannel {
     public func setFaderLevel(_ value: Double) {
         let clamped = clamp(value, min: 0, max: 1)
         let bus = busId.map { "\(busName.rawValue).\($0 - 1)" } ?? busName.rawValue
-        conn.sendMessage("SETD^settings.\(bus)^\(clamped)")
+        conn.setd("settings.\(bus)", clamped)
     }
 
     public func setFaderLevelDB(_ dbValue: Double) {

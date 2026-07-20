@@ -25,18 +25,18 @@ final class StateAndConnectionTests: MixerTestCase {
 
         XCTAssertEqual(awaitValue(store.masterValue), 0.8, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.masterPan), 0.4, accuracy: 0.001)
-        XCTAssertEqual(awaitValue(store.masterDim), 1)
+        XCTAssertEqual(awaitValue(store.masterDim), true)
         XCTAssertEqual(awaitValue(store.masterDelay(side: "L")), 250, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.faderValue(channelType: .input, channel: 1, busType: .master)), 0.5, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.faderValue(channelType: .input, channel: 1, busType: .aux, bus: 1)), 0.6, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.faderValue(channelType: .input, channel: 1, busType: .fx, bus: 1)), 0.7, accuracy: 0.001)
-        XCTAssertEqual(awaitValue(store.muteValue(channelType: .input, channel: 1, busType: .master)), 1)
-        XCTAssertEqual(awaitValue(store.soloValue(channelType: .input, channel: 1)), 1)
+        XCTAssertEqual(awaitValue(store.muteValue(channelType: .input, channel: 1, busType: .master)), true)
+        XCTAssertEqual(awaitValue(store.soloValue(channelType: .input, channel: 1)), true)
         XCTAssertEqual(awaitValue(store.panValue(channelType: .input, channel: 1, busType: .master)), 0.2, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.stereoIndex(channelType: .input, channel: 1)), 0)
         XCTAssertEqual(awaitValue(store.stereoIndex(channelType: .sub, channel: 1)), -1)
-        XCTAssertEqual(awaitValue(store.postValue(channelType: .input, channel: 1, busType: .aux, bus: 1)), 1)
-        XCTAssertEqual(awaitValue(store.auxPostProc(channelType: .input, channel: 1, aux: 1)), 1)
+        XCTAssertEqual(awaitValue(store.postValue(channelType: .input, channel: 1, busType: .aux, bus: 1)), true)
+        XCTAssertEqual(awaitValue(store.postProc(channelType: .input, channel: 1, busType: .aux, bus: 1)), true)
         XCTAssertEqual(awaitValue(store.delayValue(channelType: .input, channel: 1)), 100, accuracy: 0.001)
         XCTAssertEqual(awaitValue(store.fxType(bus: 1)), 3)
         XCTAssertEqual(awaitValue(store.fxBpm(bus: 1)), 140)
@@ -139,6 +139,34 @@ final class StateAndConnectionTests: MixerTestCase {
 
         XCTAssertEqual(inbound, ["SETD^a^1", "SETD^b^2"])
         XCTAssertEqual(all, ["PING", "SETD^a^1", "SETD^b^2"])
+    }
+
+    func testDuplicateConnectDoesNotReopenSocketOrDoubleProcessInbound() {
+        let transport = MockWebSocketTransport()
+        let connection = MixerConnection(ip: "127.0.0.1", transport: transport)
+
+        connection.connect()
+        XCTAssertEqual(connection.currentStatus, .open)
+        XCTAssertEqual(transport.connectCallCount, 1)
+
+        // a duplicate connect() while already open must be a no-op (no second socket)
+        connection.connect()
+        XCTAssertEqual(connection.currentStatus, .open)
+        XCTAssertEqual(transport.connectCallCount, 1)
+
+        // inbound is processed exactly once (onMessage is wired a single time in init)
+        var messages = [String]()
+        connection.inbound
+            .sink { messages.append($0) }
+            .store(in: &cancellables)
+
+        transport.simulateInbound("SETD^i.0.mix^0.5")
+        XCTAssertEqual(messages, ["SETD^i.0.mix^0.5"])
+
+        // after an explicit disconnect, connect() opens again
+        connection.disconnect()
+        connection.connect()
+        XCTAssertEqual(transport.connectCallCount, 2)
     }
 
     func testMixerConnectionReconnectsAfterExplicitReconnectCall() {

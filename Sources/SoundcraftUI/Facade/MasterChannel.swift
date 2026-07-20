@@ -7,8 +7,8 @@ public class MasterChannel: Channel, PannableChannel {
 
     // MARK: - Publishers
 
-    /// Solo state (0 or 1)
-    public lazy var solo$: AnyPublisher<Int, Never> = {
+    /// Solo state
+    public lazy var solo$: AnyPublisher<Bool, Never> = {
         store.soloValue(channelType: channelType, channel: channel)
     }()
 
@@ -40,9 +40,9 @@ public class MasterChannel: Channel, PannableChannel {
         automixWeight.map { linearMappingValueToRange($0, lowerBound: -12, upperBound: 12) }.eraseToAnyPublisher()
     }()
 
-    /// Multitrack recording selection (0 or 1)
-    public lazy var multiTrackSelected: AnyPublisher<Int, Never> = {
-        store.select(path: "\(fullChannelId).mtkrec", default: 0)
+    /// Multitrack recording selection state
+    public lazy var multiTrackSelected: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "\(fullChannelId).mtkrec")
     }()
 
     // MARK: - Init
@@ -52,14 +52,14 @@ public class MasterChannel: Channel, PannableChannel {
                   busType: BusType = .master, bus: Int = 0) {
         super.init(conn: conn, store: store, channelType: channelType,
                    channel: channel, busType: busType, bus: bus)
-        self.fullChannelId = "\(channelType.rawValue).\(channel - 1)"
+        self.fullChannelId = constructMasterChannelId(channelType, channel)
         self.faderLevelCommand = "mix"
 
         // Track stereo linking
         stereoIndex
             .map { [channelType, channel] index -> [String] in
                 if let linked = getLinkedChannelNumber(channel, stereoIndex: index) {
-                    return ["\(channelType.rawValue).\(linked - 1)"]
+                    return [constructMasterChannelId(channelType, linked)]
                 }
                 return []
             }
@@ -85,7 +85,7 @@ public class MasterChannel: Channel, PannableChannel {
 
     public func setPan(_ value: Double) {
         let clamped = roundToThreeDecimals(clamp(value, min: 0, max: 1))
-        conn.sendMessage("SETD^\(fullChannelId).pan^\(clamped)")
+        conn.setd("\(fullChannelId).pan", clamped)
     }
 
     public func changePan(_ offset: Double) {
@@ -96,34 +96,34 @@ public class MasterChannel: Channel, PannableChannel {
 
     // MARK: - Solo
 
-    public func setSolo(_ value: Int) {
-        for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).solo^\(value)")
+    public func setSolo(_ value: Bool) {
+        for cid in [fullChannelId] + linkedChannelIds {
+            conn.setdBool("\(cid).solo", value)
         }
     }
 
-    public func enableSolo() { setSolo(1) }
-    public func disableSolo() { setSolo(0) }
+    public func enableSolo() { setSolo(true) }
+    public func disableSolo() { setSolo(false) }
 
     public func toggleSolo() {
         solo$.first()
-            .sink { [weak self] v in self?.setSolo(v ^ 1) }
+            .sink { [weak self] v in self?.setSolo(!v) }
             .store(in: &masterCancellables)
     }
 
     // MARK: - Multitrack
 
-    public func multiTrackSelect() { setMultiTrackSelection(1) }
-    public func multiTrackUnselect() { setMultiTrackSelection(0) }
+    public func multiTrackSelect() { setMultiTrackSelection(true) }
+    public func multiTrackUnselect() { setMultiTrackSelection(false) }
 
     public func multiTrackToggle() {
         multiTrackSelected.first()
-            .sink { [weak self] v in self?.setMultiTrackSelection(v ^ 1) }
+            .sink { [weak self] v in self?.setMultiTrackSelection(!v) }
             .store(in: &masterCancellables)
     }
 
-    private func setMultiTrackSelection(_ value: Int) {
-        conn.sendMessage("SETD^\(fullChannelId).mtkrec^\(value)")
+    private func setMultiTrackSelection(_ value: Bool) {
+        conn.setdBool("\(fullChannelId).mtkrec", value)
     }
 
     // MARK: - Automix
@@ -135,8 +135,8 @@ public class MasterChannel: Channel, PannableChannel {
         case .b: groupValue = 1
         case nil: groupValue = -1
         }
-        for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).amixgroup^\(groupValue)")
+        for cid in [fullChannelId] + linkedChannelIds {
+            conn.setd("\(cid).amixgroup", groupValue)
         }
     }
 
@@ -144,8 +144,8 @@ public class MasterChannel: Channel, PannableChannel {
 
     public func automixSetWeight(_ value: Double) {
         let clamped = clamp(value, min: 0, max: 1)
-        for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).amix^\(clamped)")
+        for cid in [fullChannelId] + linkedChannelIds {
+            conn.setd("\(cid).amix", clamped)
         }
     }
 

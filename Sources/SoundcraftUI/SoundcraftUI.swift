@@ -103,6 +103,15 @@ public final class SoundcraftUI {
         AuxBus.resolve(conn: conn, store: store, bus: bus)
     }
 
+    /// Get a matrix bus.
+    /// A matrix bus is an AUX bus that has been converted into a matrix and routes
+    /// other buses (AUX buses, subgroups, master) to an AUX output.
+    /// Matrix buses are only available on the Ui24R.
+    /// - Parameter bus: Bus number (same slot number as the AUX it replaced)
+    public func mtx(_ bus: Int) -> MtxBus {
+        MtxBus.resolve(conn: conn, store: store, bus: bus)
+    }
+
     /// Get an FX bus
     public func fx(_ bus: Int) -> FxBus {
         FxBus.resolve(conn: conn, store: store, bus: bus)
@@ -115,7 +124,7 @@ public final class SoundcraftUI {
 
     /// Unmute all mute groups
     public func clearMuteGroups() {
-        conn.sendMessage("SETD^mgmask^0")
+        conn.setd("mgmask", 0)
     }
 
     /// Get a hardware channel

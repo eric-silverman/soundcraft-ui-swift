@@ -22,4 +22,15 @@ public protocol PannableChannel: FadeableChannel {
     /// Pan value (0..1)
     var pan: AnyPublisher<Double, Never> { get }
     func setPan(_ value: Double)
+    func changePan(_ offset: Double)
+}
+
+/// A channel that supports PRE/POST processing routing
+public protocol PostProcessableChannel: AnyObject {
+    /// PRE/POST PROC state of the channel (`false` for PRE PROC, `true` for POST PROC)
+    var postProc$: AnyPublisher<Bool, Never> { get }
+
+    func setPostProc(_ value: Bool)
+    func postProc()
+    func preProc()
 }
