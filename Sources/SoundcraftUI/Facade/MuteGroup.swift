@@ -13,11 +13,13 @@ public final class MuteGroup {
         store.select(path: "mgmask", default: 0)
     }()
 
-    /// Mute state (0 or 1)
-    public lazy var state: AnyPublisher<Int, Never> = {
+    /// Mute state of the group
+    public lazy var state: AnyPublisher<Bool, Never> = {
         mgMask.map { [groupIndex] value in
             Bitmask.getValueOfBit(value, at: groupIndex)
-        }.eraseToAnyPublisher()
+        }
+        .removeDuplicates()
+        .eraseToAnyPublisher()
     }()
 
     init(conn: MixerConnection, store: MixerStore, id: MuteGroupID) {
@@ -65,6 +67,6 @@ public final class MuteGroup {
     }
 
     private func setMgMask(_ mask: Int) {
-        conn.sendMessage("SETD^mgmask^\(mask)")
+        conn.setd("mgmask", mask)
     }
 }

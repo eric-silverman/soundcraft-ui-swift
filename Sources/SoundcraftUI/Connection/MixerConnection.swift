@@ -212,6 +212,17 @@ public final class MixerConnection {
 
     /// Connect to the mixer
     public func connect() {
+        // Guard against parallel connections: an additional call while a connection
+        // is already open or being established would spin up a second socket task and
+        // cause every inbound message to be processed twice.
+        if shouldReconnect {
+            switch currentStatus {
+            case .open, .opening, .reconnecting:
+                return
+            default:
+                break
+            }
+        }
         shouldReconnect = true
         statusSubject.send(.opening)
         performConnect()
@@ -243,5 +254,40 @@ public final class MixerConnection {
     /// Send a command to the mixer (will be framed with 3:::)
     public func sendMessage(_ msg: String) {
         outboundSubject.send(msg)
+    }
+
+    /// Send a `SETD` command to the mixer.
+    /// `SETD` messages carry numeric (data) values, e.g. fader levels, mute states or gains.
+    /// - Parameters:
+    ///   - path: Parameter path, e.g. `i.2.mute`
+    ///   - value: Numeric value to set
+    public func setd(_ path: String, _ value: Double) {
+        sendMessage("SETD^\(path)^\(value)")
+    }
+
+    /// Send a `SETD` command with an integer value to the mixer.
+    /// - Parameters:
+    ///   - path: Parameter path, e.g. `mgmask`
+    ///   - value: Integer value to set
+    public func setd(_ path: String, _ value: Int) {
+        sendMessage("SETD^\(path)^\(value)")
+    }
+
+    /// Send a `SETD` command with a boolean (on/off) value to the mixer.
+    /// The boolean is converted to the numeric `0`/`1` the protocol expects.
+    /// - Parameters:
+    ///   - path: Parameter path, e.g. `i.2.mute`
+    ///   - value: Boolean value to set
+    public func setdBool(_ path: String, _ value: Bool) {
+        sendMessage("SETD^\(path)^\(value ? 1 : 0)")
+    }
+
+    /// Send a `SETS` command to the mixer.
+    /// `SETS` messages carry string values, e.g. channel names.
+    /// - Parameters:
+    ///   - path: Parameter path, e.g. `i.2.name`
+    ///   - value: String value to set
+    public func sets(_ path: String, _ value: String) {
+        sendMessage("SETS^\(path)^\(value)")
     }
 }

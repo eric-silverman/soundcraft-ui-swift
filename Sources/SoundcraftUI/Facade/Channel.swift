@@ -32,17 +32,33 @@ public class Channel: FadeableChannel {
         faderLevel.map { faderValueToDB($0) }.eraseToAnyPublisher()
     }()
 
-    /// Mute state (0 or 1)
-    public lazy var mute$: AnyPublisher<Int, Never> = {
+    /// Mute state
+    public lazy var mute$: AnyPublisher<Bool, Never> = {
         store.muteValue(channelType: channelType, channel: channel, busType: busType, bus: bus)
     }()
 
     /// Channel name
     public lazy var name: AnyPublisher<String, Never> = {
+        // Channel name is only available directly in the channel, e.g. `i.1.name`.
+        // `i.1.aux.2.name` will not work!
         let path = joinStatePath(channelType.rawValue, channel - 1, "name")
-        return store.select(path: path, default: "")
-            .map { [channelType, channel] name -> String in
-                name.isEmpty ? constructReadableChannelName(type: channelType, channel: channel) : name
+        let rawName = store.select(path: path, default: "")
+
+        guard channelType == .aux else {
+            return rawName
+                .map { [channelType, channel] name in
+                    name.isEmpty ? getDefaultChannelName(type: channelType, channel: channel) : name
+                }
+                .eraseToAnyPublisher()
+        }
+
+        // an AUX slot can be switched into a matrix bus (Ui24R), which uses a different default name
+        return Publishers.CombineLatest(rawName, store.matrix(bus: channel))
+            .map { [channelType, channel] name, isMatrix -> String in
+                if !name.isEmpty { return name }
+                return isMatrix
+                    ? getDefaultMatrixName(channel: channel)
+                    : getDefaultChannelName(type: channelType, channel: channel)
             }
             .eraseToAnyPublisher()
     }()
@@ -89,7 +105,7 @@ public class Channel: FadeableChannel {
 
     func setFaderLevelRaw(_ value: Double) {
         for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).\(faderLevelCommand)^\(value)")
+            conn.setd("\(cid).\(faderLevelCommand)", value)
         }
     }
 
@@ -135,20 +151,20 @@ public class Channel: FadeableChannel {
 
     // MARK: - Mute
 
-    public func setMute(_ value: Int) {
+    public func setMute(_ value: Bool) {
         for cid in linkedChannelIds + [fullChannelId] {
-            conn.sendMessage("SETD^\(cid).mute^\(value)")
+            conn.setdBool("\(cid).mute", value)
         }
     }
 
-    public func enableMute() { setMute(1) }
-    public func disableMute() { setMute(0) }
+    public func enableMute() { setMute(true) }
+    public func disableMute() { setMute(false) }
 
     public func toggleMute() {
         mute$
             .first()
             .sink { [weak self] value in
-                self?.setMute(value ^ 1)
+                self?.setMute(!value)
             }
             .store(in: &cancellables)
     }
@@ -158,6 +174,6 @@ public class Channel: FadeableChannel {
     public func setName(_ name: String) {
         let sanitized = sanitizeName(name)
         let path = joinStatePath(channelType.rawValue, channel - 1, "name")
-        conn.sendMessage("SETS^\(path)^\(sanitized)")
+        conn.sets(path, sanitized)
     }
 }

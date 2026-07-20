@@ -8,9 +8,9 @@ public final class AutomixGroup {
     private let group: AutomixGroupID
     private var cancellables = Set<AnyCancellable>()
 
-    /// Active state (0 or 1)
-    public lazy var state: AnyPublisher<Int, Never> = {
-        store.select(path: "automix.\(group.rawValue).on", default: 0)
+    /// Active state
+    public lazy var state: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "automix.\(group.rawValue).on")
     }()
 
     init(conn: MixerConnection, store: MixerStore, group: AutomixGroupID) {
@@ -19,17 +19,17 @@ public final class AutomixGroup {
         self.group = group
     }
 
-    public func enable() { setState(1) }
-    public func disable() { setState(0) }
+    public func enable() { setState(true) }
+    public func disable() { setState(false) }
 
     public func toggle() {
         state.first()
-            .sink { [weak self] v in self?.setState(v ^ 1) }
+            .sink { [weak self] v in self?.setState(!v) }
             .store(in: &cancellables)
     }
 
-    private func setState(_ value: Int) {
-        conn.sendMessage("SETD^automix.\(group.rawValue).on^\(value)")
+    private func setState(_ value: Bool) {
+        conn.setdBool("automix.\(group.rawValue).on", value)
     }
 }
 
@@ -61,7 +61,7 @@ public final class AutomixController {
     }
 
     public func setResponseTime(_ value: Double) {
-        conn.sendMessage("SETD^automix.time^\(value)")
+        conn.setd("automix.time", value)
     }
 
     public func setResponseTimeMs(_ timeMs: Double) {

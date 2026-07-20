@@ -21,7 +21,7 @@ final class FacadeParityTests: MixerTestCase {
         transport.simulateSetd(path: "i.0.stereoIndex", value: "0")
         drainMainQueue()
 
-        channel.setPostProc(1)
+        channel.setPostProc(true)
 
         assertSent("SETD^i.0.aux.0.postproc^1")
         assertSent("SETD^i.1.aux.0.postproc^1")
@@ -64,7 +64,7 @@ final class FacadeParityTests: MixerTestCase {
         let group = MuteGroup.resolve(conn: conn, store: store, id: .group(2))
 
         transport.simulateSetd(path: "mgmask", value: "2")
-        XCTAssertEqual(awaitValue(group.state), 1)
+        XCTAssertEqual(awaitValue(group.state), true)
 
         transport.sentMessages.removeAll()
         group.toggle()
@@ -138,7 +138,7 @@ final class FacadeParityTests: MixerTestCase {
         assertSent("SETD^i.0.pan^0.3")
 
         transport.sentMessages.removeAll()
-        channel.setSolo(1)
+        channel.setSolo(true)
         assertSent("SETD^i.0.solo^1")
         assertSent("SETD^i.1.solo^1")
 
@@ -189,7 +189,7 @@ final class FacadeParityTests: MixerTestCase {
         drainMainQueue()
 
         channel.setFaderLevel(0.4)
-        channel.setPost(1)
+        channel.setPost(true)
 
         assertSent("SETD^i.0.fx.0.value^0.4")
         assertSent("SETD^i.1.fx.0.value^0.4")

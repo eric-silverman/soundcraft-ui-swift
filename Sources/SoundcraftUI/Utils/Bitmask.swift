@@ -20,9 +20,9 @@ public enum Bitmask {
         return value | (1 << bitIndex)
     }
 
-    /// Get the value (0 or 1) of a bit at the given index
-    public static func getValueOfBit(_ value: Int, at bitIndex: Int) -> Int {
-        guard bitIndex >= 0 else { return value }
-        return (value & (1 << bitIndex)) != 0 ? 1 : 0
+    /// Return whether a specific bit at the given index is set
+    public static func getValueOfBit(_ value: Int, at bitIndex: Int) -> Bool {
+        guard bitIndex >= 0 else { return false }
+        return (value & (1 << bitIndex)) != 0
     }
 }

@@ -7,14 +7,14 @@ public final class DualTrackRecorder {
     private let store: MixerStore
     private var cancellables = Set<AnyCancellable>()
 
-    /// Recording state (0 or 1)
-    public lazy var recording: AnyPublisher<Int, Never> = {
-        store.select(path: "var.isRecording", default: 0)
+    /// Recording state
+    public lazy var recording: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "var.isRecording")
     }()
 
-    /// Recording busy state (0 or 1)
-    public lazy var busy: AnyPublisher<Int, Never> = {
-        store.select(path: "var.recBusy", default: 0)
+    /// Recording busy state
+    public lazy var busy: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "var.recBusy")
     }()
 
     init(conn: MixerConnection, store: MixerStore) {
@@ -29,7 +29,7 @@ public final class DualTrackRecorder {
     public func recordStart() {
         recording.first()
             .sink { [weak self] rec in
-                if rec == 0 { self?.recordToggle() }
+                if !rec { self?.recordToggle() }
             }
             .store(in: &cancellables)
     }
@@ -37,7 +37,7 @@ public final class DualTrackRecorder {
     public func recordStop() {
         recording.first()
             .sink { [weak self] rec in
-                if rec != 0 { self?.recordToggle() }
+                if rec { self?.recordToggle() }
             }
             .store(in: &cancellables)
     }

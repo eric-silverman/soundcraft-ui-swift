@@ -35,7 +35,7 @@ final class ChannelTests: XCTestCase {
 
     func testMasterBusSetDim() {
         let master = MasterBus(conn: conn, store: store)
-        master.setDim(1)
+        master.setDim(true)
 
         XCTAssertTrue(transport.sentCommands.contains("SETD^m.dim^1"))
     }
@@ -66,7 +66,7 @@ final class ChannelTests: XCTestCase {
 
     func testChannelSetMute() {
         let ch = Channel(conn: conn, store: store, channelType: .input, channel: 3)
-        ch.setMute(1)
+        ch.setMute(true)
 
         XCTAssertTrue(transport.sentCommands.contains("SETD^i.2.mute^1"))
     }
@@ -144,7 +144,7 @@ final class ChannelTests: XCTestCase {
 
     func testMasterChannelSolo() {
         let ch = MasterChannel(conn: conn, store: store, channelType: .input, channel: 1)
-        ch.setSolo(1)
+        ch.setSolo(true)
 
         XCTAssertTrue(transport.sentCommands.contains("SETD^i.0.solo^1"))
     }
@@ -168,7 +168,7 @@ final class ChannelTests: XCTestCase {
 
     func testSendChannelPost() {
         let ch = SendChannel(conn: conn, store: store, channelType: .input, channel: 1, busType: .aux, bus: 1)
-        ch.setPost(1)
+        ch.setPost(true)
 
         XCTAssertTrue(transport.sentCommands.contains("SETD^i.0.aux.0.post^1"))
     }

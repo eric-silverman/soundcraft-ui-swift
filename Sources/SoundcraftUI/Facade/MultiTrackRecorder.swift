@@ -36,24 +36,29 @@ public final class MultiTrackRecorder {
     /// Remaining time in seconds
     public lazy var remainingTime: AnyPublisher<Int, Never> = { store.mtkRemainingTime }()
 
-    /// Recording state (0 or 1)
-    public lazy var recording: AnyPublisher<Int, Never> = {
-        store.select(path: "var.mtk.rec.currentState", default: 0)
+    /// Recording state
+    public lazy var recording: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "var.mtk.rec.currentState")
     }()
 
-    /// Recording busy state (0 or 1)
-    public lazy var busy: AnyPublisher<Int, Never> = {
-        store.select(path: "var.mtk.rec.busy", default: 0)
+    /// Recording busy state
+    public lazy var busy: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "var.mtk.rec.busy")
     }()
 
-    /// Soundcheck state (0 or 1)
-    public lazy var soundcheck: AnyPublisher<Int, Never> = {
-        store.select(path: "var.mtk.soundcheck", default: 0)
+    /// Soundcheck state
+    public lazy var soundcheck: AnyPublisher<Bool, Never> = {
+        store.selectBoolean(path: "var.mtk.soundcheck")
     }()
 
-    /// Recording time in seconds (tracks elapsed recording time)
+    /// Recording time in seconds (tracks elapsed recording time).
+    /// Set to `0` when not actually recording, otherwise it emits strange values.
     public lazy var recordingTime: AnyPublisher<Int, Never> = {
         store.select(path: "var.mtk.rec.time", default: 0)
+            .combineLatest(recording)
+            .map { value, recording in recording ? value : 0 }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
     }()
 
     init(conn: MixerConnection, store: MixerStore) {
@@ -70,7 +75,7 @@ public final class MultiTrackRecorder {
     public func recordStart() {
         recording.first()
             .sink { [weak self] rec in
-                if rec == 0 { self?.recordToggle() }
+                if !rec { self?.recordToggle() }
             }
             .store(in: &cancellables)
     }
@@ -78,21 +83,21 @@ public final class MultiTrackRecorder {
     public func recordStop() {
         recording.first()
             .sink { [weak self] rec in
-                if rec != 0 { self?.recordToggle() }
+                if rec { self?.recordToggle() }
             }
             .store(in: &cancellables)
     }
 
-    public func setSoundcheck(_ value: Int) {
-        conn.sendMessage("SETD^var.mtk.soundcheck^\(value)")
+    public func setSoundcheck(_ value: Bool) {
+        conn.setdBool("var.mtk.soundcheck", value)
     }
 
-    public func activateSoundcheck() { setSoundcheck(1) }
-    public func deactivateSoundcheck() { setSoundcheck(0) }
+    public func activateSoundcheck() { setSoundcheck(true) }
+    public func deactivateSoundcheck() { setSoundcheck(false) }
 
     public func toggleSoundcheck() {
         soundcheck.first()
-            .sink { [weak self] v in self?.setSoundcheck(v ^ 1) }
+            .sink { [weak self] v in self?.setSoundcheck(!v) }
             .store(in: &cancellables)
     }
 

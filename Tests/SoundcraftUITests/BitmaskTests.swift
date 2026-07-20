@@ -23,17 +23,17 @@ final class BitmaskTests: XCTestCase {
     }
 
     func testGetValueOfBit() {
-        XCTAssertEqual(Bitmask.getValueOfBit(5, at: 0), 1) // 101 -> bit 0 = 1
-        XCTAssertEqual(Bitmask.getValueOfBit(5, at: 1), 0) // 101 -> bit 1 = 0
-        XCTAssertEqual(Bitmask.getValueOfBit(5, at: 2), 1) // 101 -> bit 2 = 1
+        XCTAssertTrue(Bitmask.getValueOfBit(5, at: 0)) // 101 -> bit 0 = 1
+        XCTAssertFalse(Bitmask.getValueOfBit(5, at: 1)) // 101 -> bit 1 = 0
+        XCTAssertTrue(Bitmask.getValueOfBit(5, at: 2)) // 101 -> bit 2 = 1
     }
 
     func testNegativeBitIndex() {
-        // Negative index should return value unchanged
+        // Negative index should return value unchanged (bit operations) / false (bit read)
         XCTAssertEqual(Bitmask.toggleBit(42, at: -1), 42)
         XCTAssertEqual(Bitmask.clearBit(42, at: -1), 42)
         XCTAssertEqual(Bitmask.setBit(42, at: -1), 42)
-        XCTAssertEqual(Bitmask.getValueOfBit(42, at: -1), 42)
+        XCTAssertFalse(Bitmask.getValueOfBit(42, at: -1))
     }
 
     func testMuteGroupBitPositions() {
@@ -52,15 +52,15 @@ final class BitmaskTests: XCTestCase {
         // Mute group 1
         mask = Bitmask.setBit(mask, at: MuteGroupID.group(1).bitIndex)
         XCTAssertEqual(mask, 1)
-        XCTAssertEqual(Bitmask.getValueOfBit(mask, at: 0), 1)
+        XCTAssertTrue(Bitmask.getValueOfBit(mask, at: 0))
 
         // Mute group 3
         mask = Bitmask.setBit(mask, at: MuteGroupID.group(3).bitIndex)
-        XCTAssertEqual(Bitmask.getValueOfBit(mask, at: 2), 1)
+        XCTAssertTrue(Bitmask.getValueOfBit(mask, at: 2))
 
         // Unmute group 1
         mask = Bitmask.clearBit(mask, at: MuteGroupID.group(1).bitIndex)
-        XCTAssertEqual(Bitmask.getValueOfBit(mask, at: 0), 0)
-        XCTAssertEqual(Bitmask.getValueOfBit(mask, at: 2), 1) // group 3 still muted
+        XCTAssertFalse(Bitmask.getValueOfBit(mask, at: 0))
+        XCTAssertTrue(Bitmask.getValueOfBit(mask, at: 2)) // group 3 still muted
     }
 }

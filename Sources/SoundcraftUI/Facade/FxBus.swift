@@ -56,14 +56,14 @@ public final class FxBus {
     // MARK: - FX Type
 
     public func setFxType(_ type: FxType) {
-        conn.sendMessage("SETD^f.\(bus - 1).fxtype^\(type.rawValue)")
+        conn.setd("f.\(bus - 1).fxtype", type.rawValue)
     }
 
     // MARK: - BPM
 
     public func setBpm(_ value: Int) {
         let clamped = clamp(value, min: 20, max: 400)
-        conn.sendMessage("SETD^f.\(bus - 1).bpm^\(clamped)")
+        conn.setd("f.\(bus - 1).bpm", clamped)
     }
 
     // MARK: - FX Parameters (1-6)
@@ -77,6 +77,6 @@ public final class FxBus {
     public func setParam(_ param: Int, value: Double) {
         precondition(param >= 1 && param <= 6, "FX Parameter must be between 1 and 6")
         let clamped = clamp(value, min: 0, max: 1)
-        conn.sendMessage("SETD^f.\(bus - 1).par\(param)^\(clamped)")
+        conn.setd("f.\(bus - 1).par\(param)", clamped)
     }
 }

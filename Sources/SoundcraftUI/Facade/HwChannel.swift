@@ -12,11 +12,11 @@ public final class HwChannel {
     /// Full channel ID (changes based on model: "hw.N" for ui24, "i.N" for ui12/16)
     private var fullChannelId: String
 
-    /// Phantom power state (0 or 1)
-    public lazy var phantom: AnyPublisher<Int, Never> = {
+    /// Phantom power state
+    public lazy var phantom: AnyPublisher<Bool, Never> = {
         deviceInfo.model
             .compactMap { $0 }
-            .flatMap { [store, channel] model -> AnyPublisher<Int, Never> in
+            .flatMap { [store, channel] model -> AnyPublisher<Bool, Never> in
                 let key = model == .ui24 ? "hw" : "i"
                 return store.phantom(channel: channel, key: key)
             }
@@ -78,16 +78,16 @@ public final class HwChannel {
 
     // MARK: - Phantom
 
-    public func setPhantom(_ value: Int) {
-        conn.sendMessage("SETD^\(fullChannelId).phantom^\(value)")
+    public func setPhantom(_ value: Bool) {
+        conn.setdBool("\(fullChannelId).phantom", value)
     }
 
-    public func phantomOn() { setPhantom(1) }
-    public func phantomOff() { setPhantom(0) }
+    public func phantomOn() { setPhantom(true) }
+    public func phantomOff() { setPhantom(false) }
 
     public func togglePhantom() {
         phantom.first()
-            .sink { [weak self] v in self?.setPhantom(v ^ 1) }
+            .sink { [weak self] v in self?.setPhantom(!v) }
             .store(in: &cancellables)
     }
 
@@ -95,7 +95,7 @@ public final class HwChannel {
 
     public func setGain(_ value: Double) {
         let clamped = clamp(value, min: 0, max: 1)
-        conn.sendMessage("SETD^\(fullChannelId).gain^\(clamped)")
+        conn.setd("\(fullChannelId).gain", clamped)
     }
 
     public func changeGain(_ offset: Double) {

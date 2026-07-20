@@ -22,9 +22,34 @@ public final class ShowController {
         store.select(path: "var.currentCue", default: "")
     }()
 
+    /// All available shows with their snapshots and cues (show name -> details).
+    /// Snapshots and cues are not hierarchical; both hang off a show in parallel.
+    /// Fetched on connect; refresh manually with `refreshShows()`.
+    public lazy var shows: AnyPublisher<ShowsWithDetails, Never> = {
+        store.resourceListState
+            .map { state -> ShowsWithDetails in
+                let names = state[ResourceListConfig.ShowsKey] ?? []
+                var result: ShowsWithDetails = [:]
+                for name in names {
+                    result[name] = ShowDetails(
+                        snapshots: state["\(ResourceListConfig.SnapshotsKey)^\(name)"] ?? [],
+                        cues: state["\(ResourceListConfig.CuesKey)^\(name)"] ?? []
+                    )
+                }
+                return result
+            }
+            .eraseToAnyPublisher()
+    }()
+
     init(conn: MixerConnection, store: MixerStore) {
         self.conn = conn
         self.store = store
+
+        // shows/snapshots/cues are sent per-client on request, so (re-)fetch them on every open
+        conn.status
+            .filter { $0 == .open }
+            .sink { [weak self] _ in self?.refreshShows() }
+            .store(in: &cancellables)
     }
 
     public func loadShow(_ show: String) {
@@ -63,6 +88,20 @@ public final class ShowController {
             .filter { !$0.0.isEmpty && !$0.1.isEmpty }
             .sink { [weak self] show, cue in
                 self?.saveCue(show: show, cue: cue)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Request the list of shows and, for each show, its snapshots and cues from the mixer.
+    /// Results are exposed through `shows`.
+    /// This is called automatically on every connection open.
+    public func refreshShows() {
+        requestResourceList(conn, requestCmd: "SHOWLIST", replyCmd: "SHOWLIST")
+            .sink { [weak self] shows in
+                for show in shows {
+                    self?.conn.sendMessage("SNAPSHOTLIST^\(show)")
+                    self?.conn.sendMessage("CUELIST^\(show)")
+                }
             }
             .store(in: &cancellables)
     }

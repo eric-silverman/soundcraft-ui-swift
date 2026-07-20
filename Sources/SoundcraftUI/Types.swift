@@ -24,6 +24,7 @@ public enum BusType: String, Sendable {
     case master
     case aux
     case fx
+    case mtx
 }
 
 // MARK: - Connection
@@ -53,6 +54,25 @@ public enum MtkState: Int, Sendable {
     case paused = 1
     case playing = 2
 }
+
+// MARK: - Resource Lists
+
+/// A map of playlist name to its list of track names.
+public typealias PlaylistsWithTracks = [String: [String]]
+
+/// The snapshots and cues that belong to a show.
+public struct ShowDetails: Equatable, Sendable {
+    public var snapshots: [String]
+    public var cues: [String]
+
+    public init(snapshots: [String] = [], cues: [String] = []) {
+        self.snapshots = snapshots
+        self.cues = cues
+    }
+}
+
+/// A map of show name to its snapshots and cues.
+public typealias ShowsWithDetails = [String: ShowDetails]
 
 // MARK: - Effects
 
