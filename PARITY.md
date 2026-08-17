@@ -2,14 +2,14 @@
 
 This Swift package is a port of the TypeScript library [`fmalcher/soundcraft-ui`](https://github.com/fmalcher/soundcraft-ui). This document tracks which upstream files have a Swift counterpart and when they were last reconciled.
 
-**Upstream baseline:** [`93db985`](https://github.com/fmalcher/soundcraft-ui/commit/93db9850b91df3a6690534abc622d44fe01b9c9b) (2026-07-20)
+**Upstream baseline:** [`0274780`](https://github.com/fmalcher/soundcraft-ui/commit/02747804b6dd0f2cdade5c43c7288d1721be568a) (2026-08-12)
 
 When upstream changes, the `parity-watch` workflow opens an issue listing the upstream files that have moved. Reconcile, then update the SHA above and any affected status notes below.
 
 ## How to reconcile
 
 1. `git -C /tmp clone --depth 50 https://github.com/fmalcher/soundcraft-ui` (or fetch)
-2. `git log --oneline 9cb0ba5..HEAD -- packages/mixer-connection/src/lib/` to see what changed
+2. `git log --oneline <baseline-sha>..HEAD -- packages/mixer-connection/src/lib/` to see what changed (use the baseline SHA above)
 3. Port the changes into the matching Swift file
 4. Update this file's baseline SHA and any affected status notes if the change touched them
 5. Commit with message `Sync parity to <new-sha>`
@@ -133,11 +133,11 @@ Idiomatic Swift naming differences from the TS API.
 | `Promise<void>` | `async` / sync as appropriate | native async |
 | `conn.setd/setdBool/sets` | `conn.setd(_:_:)` / `conn.setdBool(_:_:)` / `conn.sets(_:_:)` | Swift argument labels |
 
-On/off state matches upstream `93db985`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
+On/off state matches upstream `0274780`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
 
 ## Test coverage status
 
-At baseline `93db985`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
+At baseline `0274780`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
 
 - facade behavior for `aux-channel`, `volume-bus`, `automix-controller`, `mute-group`, `device-info`, `fx-bus`, `delayable-master-channel`, `master-channel`, `master-bus`, `fx-channel`, and `hw-channel`
 - state and connection coverage for `state-selectors`, `object-store`, outbound message streams, `mixer-connection`, singleton reuse, and top-level `soundcraft-ui` wiring
