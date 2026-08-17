@@ -8,11 +8,16 @@
 #
 # Exit codes:
 #   0 — no drift
-#   1 — error (couldn't read PARITY.md or reach GitHub)
+#   1 — error (couldn't read PARITY.md, or couldn't resolve upstream HEAD)
 #   2 — drift detected
+#
+# If upstream HEAD resolves but the compare call fails, that is still exit 2:
+# the drift is real and worth reporting even when the file list is missing.
 #
 # When run under GitHub Actions ($GITHUB_OUTPUT is set), the script also
 # writes machine-readable outputs: base, head, drift, changed, specs.
+#
+# Set PARITY_API to point at a different API host (used to test failure paths).
 #
 # Requires: curl, jq
 
@@ -32,7 +37,28 @@ if [ -z "$BASE" ]; then
   exit 1
 fi
 
-HEAD=$(curl -fsSL https://api.github.com/repos/fmalcher/soundcraft-ui/commits/main | jq -r '.sha')
+API="${PARITY_API:-https://api.github.com}"
+
+# GitHub's API returns transient 5xx/404s during incidents, so retry before
+# giving up. Prints the response body on success.
+fetch_json() {
+  local url="$1" attempt
+  for attempt in 1 2 3; do
+    if curl -fsSL "$url"; then
+      return 0
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      sleep $((attempt * 3))
+    fi
+  done
+  return 1
+}
+
+if ! HEAD=$(fetch_json "$API/repos/fmalcher/soundcraft-ui/commits/main" | jq -r '.sha') \
+  || [ -z "$HEAD" ] || [ "$HEAD" = "null" ]; then
+  echo "Could not fetch upstream HEAD from the GitHub API." >&2
+  exit 1
+fi
 
 emit_output() {
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
@@ -64,16 +90,24 @@ echo "⚠ Drift detected. Compare:"
 echo "  https://github.com/fmalcher/soundcraft-ui/compare/${BASE}...${HEAD}"
 echo
 
-COMPARE=$(curl -fsSL "https://api.github.com/repos/fmalcher/soundcraft-ui/compare/${BASE}...${HEAD}")
+# A failed compare must not look like "no files changed" — an empty list is
+# meaningful (drift that needs no porting), so name the unknown explicitly.
+UNAVAILABLE="(unavailable — GitHub compare API unreachable)"
 
-CHANGED=$(echo "$COMPARE" | jq -r '.files[]?.filename' \
-  | grep -E '^packages/mixer-connection/src/lib/' \
-  | grep -vE '\.spec\.ts$' \
-  || true)
+if COMPARE=$(fetch_json "$API/repos/fmalcher/soundcraft-ui/compare/${BASE}...${HEAD}"); then
+  CHANGED=$(echo "$COMPARE" | jq -r '.files[]?.filename' \
+    | grep -E '^packages/mixer-connection/src/lib/' \
+    | grep -vE '\.spec\.ts$' \
+    || true)
 
-SPECS=$(echo "$COMPARE" | jq -r '.files[]?.filename' \
-  | grep -E '^packages/mixer-connection/src/lib/.*\.spec\.ts$' \
-  || true)
+  SPECS=$(echo "$COMPARE" | jq -r '.files[]?.filename' \
+    | grep -E '^packages/mixer-connection/src/lib/.*\.spec\.ts$' \
+    || true)
+else
+  echo "⚠ Could not reach the compare API — reporting drift without the file list." >&2
+  CHANGED="$UNAVAILABLE"
+  SPECS="$UNAVAILABLE"
+fi
 
 echo "Source files changed:"
 if [ -n "$CHANGED" ]; then
