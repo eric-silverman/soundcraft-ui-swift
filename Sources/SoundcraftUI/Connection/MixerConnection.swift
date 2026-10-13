@@ -12,28 +12,46 @@ public protocol WebSocketTransport: AnyObject {
     var onError: ((Error) -> Void)? { get set }
 }
 
-/// Production WebSocket transport using URLSession
+/// Production WebSocket transport using URLSession.
+///
+/// `onOpen` fires when the WebSocket handshake completes, via the session
+/// delegate, so a mixer that isn't there never reads as connected. That needs
+/// a session this transport owns; with a caller-supplied session there's no
+/// delegate, and `onOpen` falls back to firing as soon as the task starts.
 public final class URLSessionWebSocketTransport: WebSocketTransport {
     private var task: URLSessionWebSocketTask?
     private let session: URLSession
+    private let events: SocketEvents?
 
     public var onMessage: ((String) -> Void)?
     public var onOpen: (() -> Void)?
     public var onClose: (() -> Void)?
     public var onError: ((Error) -> Void)?
 
-    public init(session: URLSession = .shared) {
-        self.session = session
+    public init(session: URLSession? = nil) {
+        if let session {
+            self.session = session
+            self.events = nil
+        } else {
+            let events = SocketEvents()
+            self.events = events
+            self.session = URLSession(configuration: .default, delegate: events, delegateQueue: nil)
+            events.onOpen = { [weak self] opened in
+                guard let self, opened === self.task else { return }   // ignore a stale task
+                self.onOpen?()
+            }
+        }
+    }
+
+    deinit {
+        if events != nil { session.invalidateAndCancel() }   // the session retains its delegate
     }
 
     public func connect(to url: URL) {
         let task = session.webSocketTask(with: url)
         self.task = task
         task.resume()
-
-        // URLSessionWebSocketTask doesn't have a direct open callback;
-        // we fire it after resume and start receiving
-        onOpen?()
+        if events == nil { onOpen?() }
         receiveLoop()
     }
 
@@ -67,6 +85,16 @@ public final class URLSessionWebSocketTransport: WebSocketTransport {
                 self?.receiveLoop()
             }
         }
+    }
+}
+
+/// Session delegate that reports the WebSocket handshake completing.
+private final class SocketEvents: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
+    var onOpen: ((URLSessionWebSocketTask) -> Void)?
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol protocol: String?) {
+        onOpen?(webSocketTask)
     }
 }
 
