@@ -189,3 +189,18 @@ final class StateAndConnectionTests: MixerTestCase {
         wait(for: [expectation], timeout: 2)
     }
 }
+
+final class URLSessionWebSocketTransportTests: XCTestCase {
+    /// Nothing listens on port 1: the transport must report an error, never "open".
+    func testUnreachableMixerNeverReportsOpen() {
+        let transport = URLSessionWebSocketTransport()
+        let failed = expectation(description: "error")
+        var opened = false
+        transport.onOpen = { opened = true }
+        transport.onError = { _ in failed.fulfill() }
+        transport.connect(to: URL(string: "ws://127.0.0.1:1")!)
+        wait(for: [failed], timeout: 10)
+        XCTAssertFalse(opened, "onOpen fired without a WebSocket handshake")
+        transport.disconnect()
+    }
+}
