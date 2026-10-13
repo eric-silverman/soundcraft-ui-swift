@@ -2,7 +2,7 @@
 
 This Swift package is a port of the TypeScript library [`fmalcher/soundcraft-ui`](https://github.com/fmalcher/soundcraft-ui). This document tracks which upstream files have a Swift counterpart and when they were last reconciled.
 
-**Upstream baseline:** [`4322dc1`](https://github.com/fmalcher/soundcraft-ui/commit/4322dc17850a0892e6cb4bc259fbd43e2da329c1) (2026-10-01)
+**Upstream baseline:** [`fee842d`](https://github.com/fmalcher/soundcraft-ui/commit/fee842d5a407138fbd178bcca90100fed34f6f02) (2026-10-12)
 
 When upstream changes, the `parity-watch` workflow opens an issue listing the upstream files that have moved. Reconcile, then update the SHA above and any affected status notes below.
 
@@ -36,7 +36,7 @@ When upstream changes, the `parity-watch` workflow opens an issue listing the up
 | `lib/state/object-store.ts` | `Sources/SoundcraftUI/State/ObjectStore.swift` | synced |
 | `lib/state/state-selectors.ts` | `Sources/SoundcraftUI/State/StateSelectors.swift` | synced |
 | `lib/state/resource-lists.ts` | `Sources/SoundcraftUI/State/ResourceLists.swift` | synced |
-| `lib/state/mixer-state.models.ts` | (Swift types in `Types.swift`) | synced |
+| `lib/state/mixer-state.models.ts` | (Swift types in `Types.swift`) | dropped upstream in `cb840a7` (unused quicktype-generated model); the real, used state types live in `Types.swift` |
 
 ### Facade — buses
 
@@ -137,11 +137,11 @@ Idiomatic Swift naming differences from the TS API.
 | `Promise<void>` | `async` / sync as appropriate | native async |
 | `conn.setd/setdBool/sets` | `conn.setd(_:_:)` / `conn.setdBool(_:_:)` / `conn.sets(_:_:)` | Swift argument labels |
 
-On/off state matches upstream `4322dc1`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
+On/off state matches upstream `fee842d`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
 
 ## Test coverage status
 
-At baseline `4322dc1`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
+At baseline `fee842d`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
 
 - facade behavior for `aux-channel`, `volume-bus`, `automix-controller`, `mute-group`, `device-info`, `fx-bus`, `delayable-master-channel`, `master-channel`, `master-bus`, `fx-channel`, and `hw-channel`
 - state and connection coverage for `state-selectors`, `object-store`, outbound message streams, `mixer-connection`, singleton reuse, and top-level `soundcraft-ui` wiring
