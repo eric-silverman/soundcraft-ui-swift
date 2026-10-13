@@ -93,6 +93,10 @@ When upstream changes, the `parity-watch` workflow opens an issue listing the up
 | `lib/vu/vu.types.ts` | `Sources/SoundcraftUI/VU/VUTypes.swift` | synced |
 | `lib/vu/vu.utils.ts` | `Sources/SoundcraftUI/VU/VUProcessor.swift` | synced |
 
+Beyond upstream: VU2 dynamics bytes (compressor GR + gate bit, and the input
+dynamics in/out levels) follow the Ui24R stock web UI's `parseVUdata` in
+`mixer.html`, checked against a frame captured from a Ui24R.
+
 ### Utils
 
 | Upstream file | Swift file | Status |

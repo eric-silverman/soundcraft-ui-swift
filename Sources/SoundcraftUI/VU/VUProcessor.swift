@@ -91,13 +91,17 @@ public final class VUProcessor {
 
                 switch ct.key {
                 case "input", "player", "line":
-                    // byte[3] = compressor/dynamics GR; byte[4] = gate GR (0 if not populated)
+                    // 0 pre, 1 post-processing, 2 post-fader, 3/4 dynamics in/out,
+                    // 5 comp GR + gate bit (layout from the stock web UI's parseVUdata)
+                    let dyn = VUProcessor.dynamics(bytes[idx + 5])
                     let vu = InputChannelVU(
                         vuPre: Double(bytes[idx]) * norm,
                         vuPost: Double(bytes[idx + 1]) * norm,
                         vuPostFader: Double(bytes[idx + 2]) * norm,
-                        grFraction: Double(bytes[idx + 3]) * norm,
-                        gateGRFraction: Double(bytes[idx + 4]) * norm
+                        dynamicsIn: Double(bytes[idx + 3]) * norm,
+                        dynamicsOut: Double(bytes[idx + 4]) * norm,
+                        grFraction: dyn.gr,
+                        gateOpen: dyn.gateOpen
                     )
                     switch ct.key {
                     case "input": inputVU.append(vu)
@@ -106,31 +110,38 @@ public final class VUProcessor {
                     }
 
                 case "aux":
-                    // byte[2] = GR fraction
+                    // 0 post-processing, 1 post-fader, 4 comp GR + gate bit
+                    let dyn = VUProcessor.dynamics(bytes[idx + 4])
                     auxVU.append(AuxChannelVU(
                         vuPost: Double(bytes[idx]) * norm,
                         vuPostFader: Double(bytes[idx + 1]) * norm,
-                        grFraction: Double(bytes[idx + 2]) * norm
+                        grFraction: dyn.gr,
+                        gateOpen: dyn.gateOpen
                     ))
 
                 case "fx", "sub":
-                    // bytes[4] and [5] = L/R GR fractions
+                    // 0/1 post L/R, 2/3 post-fader L/R, 6 comp GR + gate bit (both sides)
+                    let dyn = VUProcessor.dynamics(bytes[idx + 6])
                     let vu = StereoVU(
                         vuPostL: Double(bytes[idx]) * norm,
                         vuPostR: Double(bytes[idx + 1]) * norm,
                         vuPostFaderL: Double(bytes[idx + 2]) * norm,
                         vuPostFaderR: Double(bytes[idx + 3]) * norm,
-                        grFractionL: Double(bytes[idx + 4]) * norm,
-                        grFractionR: Double(bytes[idx + 5]) * norm
+                        grFractionL: dyn.gr,
+                        grFractionR: dyn.gr,
+                        gateOpenL: dyn.gateOpen,
+                        gateOpenR: dyn.gateOpen
                     )
                     if ct.key == "fx" { fxVU.append(vu) } else { subVU.append(vu) }
 
                 case "master":
-                    // byte[2] = GR fraction
+                    // 0 post, 1 post-fader, 4 comp GR + gate bit
+                    let dyn = VUProcessor.dynamics(bytes[idx + 4])
                     masterVU.append(MasterVU(
                         vuPost: Double(bytes[idx]) * norm,
                         vuPostFader: Double(bytes[idx + 1]) * norm,
-                        grFraction: Double(bytes[idx + 2]) * norm
+                        grFraction: dyn.gr,
+                        gateOpen: dyn.gateOpen
                     ))
 
                 default: break
@@ -144,6 +155,19 @@ public final class VUProcessor {
             input: inputVU, player: playerVU, sub: subVU,
             fx: fxVU, aux: auxVU, master: masterVU, line: lineVU
         )
+    }
+}
+
+extension VUProcessor {
+    /// Decode a dynamics byte: low 7 bits = compressor gain reduction, top bit =
+    /// gate open. Port of the stock web UI's `deconvertVU_comp` + `GRMeter`
+    /// (COMP_ZOOM 2, COMP_SCALE 0.5): `gr` 1.0 = 20 dB of reduction.
+    static func dynamics(_ byte: UInt8) -> (gr: Double, gateOpen: Bool) {
+        var x = Int(byte & 0x7F) << 1
+        x |= (x >> 7) & 1
+        var comp = (1 - 0.004167508166392142 * Double(x)) * 2
+        comp = comp < 0.008 ? 0 : min(comp, 1)
+        return (min(1, comp / 0.5), byte & 0x80 != 0)
     }
 }
 

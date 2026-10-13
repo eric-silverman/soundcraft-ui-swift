@@ -3,57 +3,30 @@ import XCTest
 
 final class VUProcessorTests: XCTestCase {
 
+    /// Dynamics byte: low 7 bits = comp GR, top bit = gate open (stock web UI layout).
+    private static let gateOpenNoGR: UInt8 = 247   // what an idle Ui24R sends
+    private static let gateClosed10dB: UInt8 = 105  // ~10 dB GR, top bit clear
+
     func testParseBasicVUData() {
-        // Construct a minimal VU message for ui12-like config:
         // Header: 8 inputs, 2 players, 4 subs, 4 fx, 4 aux, 2 master, 2 line
-        var bytes: [UInt8] = [8, 2, 4, 4, 4, 2, 2, 0] // preamble
+        var bytes: [UInt8] = [8, 2, 4, 4, 4, 2, 2, 0]
 
-        // 8 input channels (6 bytes each); byte[3] = compressor GR, byte[4] = gate GR
+        // Inputs: pre, post, post-fader, dyn in, dyn out, dynamics byte
         for i in 0..<8 {
-            let vuPre = UInt8(100 + i)
-            let vuPost = UInt8(80 + i)
-            let vuPostFader = UInt8(60 + i)
-            let gr = UInt8(20 + i)
-            let gateGR = UInt8(10 + i)
-            bytes += [vuPre, vuPost, vuPostFader, gr, gateGR, 0]
+            let dyn = i == 0 ? Self.gateClosed10dB : Self.gateOpenNoGR
+            bytes += [UInt8(100 + i), UInt8(80 + i), UInt8(60 + i), UInt8(20 + i), UInt8(10 + i), dyn]
         }
+        for _ in 0..<2 { bytes += [50, 40, 30, 0, 0, Self.gateOpenNoGR] }                 // players
+        for _ in 0..<4 { bytes += [120, 110, 90, 80, 0, 0, Self.gateClosed10dB] }         // subs
+        for _ in 0..<4 { bytes += [70, 60, 50, 40, 0, 0, Self.gateOpenNoGR] }             // fx
+        for _ in 0..<4 { bytes += [100, 80, 0, 0, Self.gateClosed10dB] }                  // aux
+        bytes += [200, 180, 0, 0, Self.gateOpenNoGR]                                      // master L
+        bytes += [190, 170, 0, 0, Self.gateClosed10dB]                                    // master R
+        for _ in 0..<2 { bytes += [45, 35, 25, 18, 16, Self.gateOpenNoGR] }               // line
 
-        // 2 player channels (6 bytes each)
-        for _ in 0..<2 {
-            bytes += [50, 40, 30, 0, 0, 0]
-        }
+        guard let vu = VUProcessor.parse(Data(bytes)) else { return XCTFail("parse failed") }
+        let norm = 0.004167508166392142
 
-        // 4 sub groups (7 bytes each, stereo); bytes[4,5] = L/R GR
-        for _ in 0..<4 {
-            bytes += [120, 110, 90, 80, 30, 25, 0]
-        }
-
-        // 4 fx channels (7 bytes each, stereo); bytes[4,5] = L/R GR
-        for _ in 0..<4 {
-            bytes += [70, 60, 50, 40, 10, 5, 0]
-        }
-
-        // 4 aux channels (5 bytes each); byte[2] = GR
-        for _ in 0..<4 {
-            bytes += [100, 80, 15, 0, 0]
-        }
-
-        // 2 master channels (5 bytes each); byte[2] = GR
-        bytes += [200, 180, 12, 0, 0] // master L
-        bytes += [190, 170, 8, 0, 0]  // master R
-
-        // 2 line channels (6 bytes each); byte[3] = GR
-        for _ in 0..<2 {
-            bytes += [45, 35, 25, 18, 0, 0]
-        }
-
-        let data = Data(bytes)
-        let result = VUProcessor.parse(data)
-        XCTAssertNotNil(result)
-
-        guard let vu = result else { return }
-
-        // Check counts
         XCTAssertEqual(vu.input.count, 8)
         XCTAssertEqual(vu.player.count, 2)
         XCTAssertEqual(vu.sub.count, 4)
@@ -62,56 +35,72 @@ final class VUProcessorTests: XCTestCase {
         XCTAssertEqual(vu.master.count, 2)
         XCTAssertEqual(vu.line.count, 2)
 
-        // Check normalization factor
-        let norm = 0.004167508166392142
-
-        // First input channel
         XCTAssertEqual(vu.input[0].vuPre, 100 * norm, accuracy: 0.0001)
         XCTAssertEqual(vu.input[0].vuPost, 80 * norm, accuracy: 0.0001)
         XCTAssertEqual(vu.input[0].vuPostFader, 60 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.input[0].grFraction, 20 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.input[0].gateGRFraction, 10 * norm, accuracy: 0.0001)
-        // GR increments per channel
-        XCTAssertEqual(vu.input[1].grFraction, 21 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.input[1].gateGRFraction, 11 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.input[0].dynamicsIn, 20 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.input[0].dynamicsOut, 10 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.input[0].grFraction, 0.48, accuracy: 0.02)   // ~10 dB of 20
+        XCTAssertFalse(vu.input[0].gateOpen)
+        XCTAssertEqual(vu.input[1].grFraction, 0)
+        XCTAssertTrue(vu.input[1].gateOpen)
 
-        // Player
         XCTAssertEqual(vu.player[0].vuPre, 50 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.player[0].grFraction, 0, accuracy: 0.0001)
+        XCTAssertTrue(vu.player[0].gateOpen)
 
-        // Sub (stereo) — bytes[4,5] are GR L/R
         XCTAssertEqual(vu.sub[0].vuPostL, 120 * norm, accuracy: 0.0001)
         XCTAssertEqual(vu.sub[0].vuPostR, 110 * norm, accuracy: 0.0001)
         XCTAssertEqual(vu.sub[0].vuPostFaderL, 90 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.sub[0].grFractionL, 30 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.sub[0].grFractionR, 25 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.sub[0].vuPostFaderR, 80 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.sub[0].grFractionL, 0.48, accuracy: 0.02)
+        XCTAssertEqual(vu.sub[0].grFractionR, vu.sub[0].grFractionL)
+        XCTAssertFalse(vu.sub[0].gateOpenL)
+        XCTAssertEqual(vu.fx[0].grFractionL, 0)
 
-        // FX — bytes[4,5] are GR L/R
-        XCTAssertEqual(vu.fx[0].grFractionL, 10 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.fx[0].grFractionR, 5 * norm, accuracy: 0.0001)
-
-        // Aux — byte[2] is GR
         XCTAssertEqual(vu.aux[0].vuPost, 100 * norm, accuracy: 0.0001)
         XCTAssertEqual(vu.aux[0].vuPostFader, 80 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.aux[0].grFraction, 15 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.aux[0].grFraction, 0.48, accuracy: 0.02)
 
-        // Master — byte[2] is GR
-        XCTAssertEqual(vu.master[0].vuPost, 200 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.master[0].grFraction, 12 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.master[1].vuPost, 190 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.master[1].grFraction, 8 * norm, accuracy: 0.0001)
-
-        // Stereo master derived from master L/R
         let stereo = vu.stereoMaster
-        XCTAssertNotNil(stereo)
-        XCTAssertEqual(stereo!.vuPostL, 200 * norm, accuracy: 0.0001)
-        XCTAssertEqual(stereo!.vuPostR, 190 * norm, accuracy: 0.0001)
-        XCTAssertEqual(stereo!.grFractionL, 12 * norm, accuracy: 0.0001)
-        XCTAssertEqual(stereo!.grFractionR, 8 * norm, accuracy: 0.0001)
+        XCTAssertEqual(stereo?.vuPostL ?? 0, 200 * norm, accuracy: 0.0001)
+        XCTAssertEqual(stereo?.vuPostR ?? 0, 190 * norm, accuracy: 0.0001)
+        XCTAssertEqual(stereo?.grFractionL, 0)
+        XCTAssertEqual(stereo?.grFractionR ?? 0, 0.48, accuracy: 0.02)
+        XCTAssertEqual(stereo?.gateOpenR, false)
 
-        // Line — byte[3] is GR
         XCTAssertEqual(vu.line[0].vuPre, 45 * norm, accuracy: 0.0001)
-        XCTAssertEqual(vu.line[0].grFraction, 18 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.line[0].dynamicsOut, 16 * norm, accuracy: 0.0001)
+        XCTAssertEqual(vu.line[0].grFraction, 0)
+    }
+
+    /// A VU2 frame captured from a Ui24R during soundcheck playback. Every
+    /// dynamics byte is 247 (gate open, no GR) except input 17, whose compressor
+    /// was working (239 ≈ 5.7 dB of reduction).
+    func testParseCapturedUi24RFrame() throws {
+        let data = try XCTUnwrap(Data(base64Encoded: "\(Self.capturedUi24RFrame)"))
+        let vu = try XCTUnwrap(VUProcessor.parse(data))
+        XCTAssertEqual(vu.input.count, 24)
+        XCTAssertEqual(vu.aux.count, 10)
+        for (i, ch) in (vu.input + vu.line + vu.player).enumerated() where i != 16 {
+            XCTAssertEqual(ch.grFraction, 0, "channel index \(i)")
+            XCTAssertTrue(ch.gateOpen)
+        }
+        XCTAssertEqual(vu.input[16].grFraction * 20, 5.7, accuracy: 0.2)   // dB
+        XCTAssertTrue(vu.input[16].gateOpen)
+        for ch in vu.aux { XCTAssertEqual(ch.grFraction, 0) }
+        for ch in vu.sub + vu.fx { XCTAssertEqual(ch.grFractionL, 0); XCTAssertTrue(ch.gateOpenL) }
+        // Input 1 had signal: post-processing level is byte 1, dynamics in/out bytes 3/4.
+        XCTAssertEqual(vu.input[0].vuPost, 143 * 0.004167508166392142, accuracy: 0.0001)
+        XCTAssertEqual(vu.input[0].dynamicsOut, 142 * 0.004167508166392142, accuracy: 0.0001)
+    }
+
+    private static let capturedUi24RFrame = "GAIGBAoCAgCAjwCAjvdqfABqdPcAAAAAAPcAAAAAAPeprACppfcACgAAAPcAAAAAAPeevQCetveSrwCSrfeJoQCEn/fIygDIx/fGyADHxvcAAAAAAPcAAAAAAPcACAAAAfcAAAAAAPfVwQDVw+8AAAAAAPetygCswPcPDwAPD/cAAAAAAPcAAAAAAPcAAAAAAPcAAAAAAPcAAAAAAPcAAAAAAPcAAAAAAAD3AAAAAAAA9wAAAAAAAPcAAAAAAAD3AAAAAAAA9wAAAAAAAPcAAAAAAAD3XmIAAGJi9wAAAAAAAPcAAAAAAAD31tYAAPfT0wAA98zMAAD369oAAPe6kQC497uSALj3AAAAAPcAAAAA914AXl73AAAAAPcAAAAA9wAAAAD3AAAAAAD3AAAAAAD3"
+
+    func testDynamicsByte() {
+        XCTAssertEqual(VUProcessor.dynamics(247).gr, 0)
+        XCTAssertTrue(VUProcessor.dynamics(247).gateOpen)
+        XCTAssertFalse(VUProcessor.dynamics(0x7F).gateOpen)
+        XCTAssertEqual(VUProcessor.dynamics(0).gr, 1)   // byte 0 = maximum reduction
     }
 
     func testParseInvalidData() {
