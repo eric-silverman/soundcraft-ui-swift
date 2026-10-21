@@ -45,6 +45,24 @@ public class MasterChannel: Channel, PannableChannel {
         store.selectBoolean(path: "\(fullChannelId).mtkrec")
     }()
 
+    // MARK: - EQ
+
+    private var channelEq: ChannelEQ?
+
+    /// Parametric EQ (4 bands, high-pass and low-pass filter).
+    /// Only available for input, line, player, FX, and sub group channels.
+    public var eq: ChannelEQ {
+        if channelEq == nil {
+            channelEq = ChannelEQ(conn: conn, store: store,
+                                  channelType: channelType, channelId: fullChannelId,
+                                  linkedChannelIds: { [weak self] in
+                                      guard let self else { return [] }
+                                      return [self.fullChannelId] + self.linkedChannelIds
+                                  })
+        }
+        return channelEq!
+    }
+
     // MARK: - Init
 
     override init(conn: MixerConnection, store: MixerStore,
