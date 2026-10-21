@@ -2,7 +2,7 @@
 
 This Swift package is a port of the TypeScript library [`fmalcher/soundcraft-ui`](https://github.com/fmalcher/soundcraft-ui). This document tracks which upstream files have a Swift counterpart and when they were last reconciled.
 
-**Upstream baseline:** [`fee842d`](https://github.com/fmalcher/soundcraft-ui/commit/fee842d5a407138fbd178bcca90100fed34f6f02) (2026-10-12)
+**Upstream baseline:** [`064480e`](https://github.com/fmalcher/soundcraft-ui/commit/064480e3a0220b80ae6d1675a621e108326960ad) (2026-10-21)
 
 When upstream changes, the `parity-watch` workflow opens an issue listing the upstream files that have moved. Reconcile, then update the SHA above and any affected status notes below.
 
@@ -72,6 +72,15 @@ When upstream changes, the `parity-watch` workflow opens an issue listing the up
 | `lib/facade/matrix-utils.ts` | `Sources/SoundcraftUI/Facade/MatrixUtils.swift` | synced |
 | `lib/facade/object-store-ids.ts` | `Sources/SoundcraftUI/State/ObjectStore.swift` (store-id builders) | synced |
 
+### Facade — EQ
+
+| Upstream file | Swift file | Status |
+|---|---|---|
+| `lib/facade/eq/channel-eq.ts` | `Sources/SoundcraftUI/Facade/ChannelEQ.swift` | synced |
+| `lib/facade/eq/eq-band.ts` | `Sources/SoundcraftUI/Facade/EQBand.swift` | synced |
+| `lib/facade/eq/eq-filter.ts` | `Sources/SoundcraftUI/Facade/EQFilter.swift` | synced |
+| `lib/facade/eq/eq-utils.ts` | (inlined into `ChannelEQ.swift`, `EQFilter.swift`, `ValueConverters.swift`) | synced |
+
 ### Facade — features
 
 | Upstream file | Swift file | Status |
@@ -107,6 +116,7 @@ dynamics in/out levels) follow the Ui24R stock web UI's `parseVUdata` in
 | `lib/utils/async-helpers.ts` | (Swift uses async/await natively) | n/a |
 | `lib/utils/transitions/easings.ts` | `Sources/SoundcraftUI/Types.swift` (Easing enum) | synced |
 | `lib/utils/value-converters/value-converters.ts` | `Sources/SoundcraftUI/Utils/ValueConverters.swift` | synced |
+| `lib/utils/value-converters/eq-converters.ts` | `Sources/SoundcraftUI/Utils/ValueConverters.swift` (EQ section) | synced |
 | `lib/utils/value-converters/benchmarks-calculations/*` | `Sources/SoundcraftUI/Utils/DBLookupTable.swift` | synced |
 | `lib/utils/mock-websocket.ts` | `Tests/SoundcraftUITests/Mocks/MockWebSocketTransport.swift` | synced |
 
@@ -116,7 +126,7 @@ Features present in the Swift port but not in the upstream TS library. These go 
 
 | Swift type | Notes |
 |---|---|
-| `ParametricEQ` | 5-band + HPF/LPF — not exposed by TS facade |
+| `ParametricEQ` | 5-band + HPF/LPF with raw 0–1 values (predates upstream `ChannelEQ`) |
 | `GraphicEQ` | 31-band master/aux EQ — not exposed by TS facade |
 | `Dynamics` | Compressor controls — not exposed by TS facade |
 | `Gate` | Noise gate — not exposed by TS facade |
@@ -137,14 +147,15 @@ Idiomatic Swift naming differences from the TS API.
 | `Promise<void>` | `async` / sync as appropriate | native async |
 | `conn.setd/setdBool/sets` | `conn.setd(_:_:)` / `conn.setdBool(_:_:)` / `conn.sets(_:_:)` | Swift argument labels |
 
-On/off state matches upstream `fee842d`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
+On/off state matches upstream `064480e`: mute/solo/dim/phantom/post/postProc/shuffle/soundcheck/recording/busy/automix/mute-group and multitrack-selection publishers emit `Bool` and their setters accept `Bool`. `SETD` still keeps numeric values while `SETS` keeps strings (so numeric-looking names like `0001` are preserved).
 
 ## Test coverage status
 
-At baseline `fee842d`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
+At baseline `064480e`, the previously listed parity coverage gaps remain covered by Swift tests. Current coverage includes:
 
 - facade behavior for `aux-channel`, `volume-bus`, `automix-controller`, `mute-group`, `device-info`, `fx-bus`, `delayable-master-channel`, `master-channel`, `master-bus`, `fx-channel`, and `hw-channel`
 - state and connection coverage for `state-selectors`, `object-store`, outbound message streams, `mixer-connection`, singleton reuse, and top-level `soundcraft-ui` wiring
 - matrix (MTX) bus routing, matrix source PRE/POST PROC, aux↔matrix switching and shared instance caching, matrix-aware default channel names, and `SETS` string preservation
 - per-client resource lists: `Player` playlists/tracks and `ShowController` shows/snapshots/cues (fetched on connect)
+- upstream `ChannelEQ` parity: EQ converters (frequency/Q/gain round-trip), `EQBand`, `EQFilter`, `ChannelEQ` bypass/band/filter, `MasterChannel.eq` integration with stereo-link mirroring
 - Swift-only coverage for `ParametricEQ`, `GraphicEQ`, `Dynamics`, `Gate`, `Deesser`, `Digitech`, and `GlobalSettings`

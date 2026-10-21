@@ -90,6 +90,47 @@ public func sanitizeDelayValue(_ valueMs: Double, maximumMs: Double) -> Double {
     return clamped / 1000
 }
 
+// MARK: - EQ Converters
+
+public let eqFrequencyMin: Double = 20
+public let eqFrequencyMax: Double = 22050
+public let eqQMin: Double = 0.05
+public let eqQMax: Double = 15
+public let eqGainMinDB: Double = -20
+public let eqGainMaxDB: Double = 20
+
+private func roundToTenDecimals(_ value: Double) -> Double {
+    (value * 1e10).rounded() / 1e10
+}
+
+public func frequencyToFaderValue(_ hz: Double) -> Double {
+    let value = clamp(hz, min: eqFrequencyMin, max: eqFrequencyMax)
+    return roundToTenDecimals(log(value / eqFrequencyMin) / log(eqFrequencyMax / eqFrequencyMin))
+}
+
+public func faderValueToFrequency(_ value: Double) -> Double {
+    let v = clamp(value, min: 0, max: 1)
+    return (eqFrequencyMin * pow(eqFrequencyMax / eqFrequencyMin, v)).rounded()
+}
+
+public func qToFaderValue(_ q: Double) -> Double {
+    let value = clamp(q, min: eqQMin, max: eqQMax)
+    return roundToTenDecimals(log(value / eqQMin) / log(eqQMax / eqQMin))
+}
+
+public func faderValueToQ(_ value: Double) -> Double {
+    let v = clamp(value, min: 0, max: 1)
+    return (eqQMin * pow(eqQMax / eqQMin, v) * 100).rounded() / 100
+}
+
+public func eqGainDBToFaderValue(_ dbValue: Double) -> Double {
+    linearMappingRangeToValue(dbValue, lowerBound: eqGainMinDB, upperBound: eqGainMaxDB)
+}
+
+public func faderValueToEqGainDB(_ value: Double) -> Double {
+    linearMappingValueToRange(value, lowerBound: eqGainMinDB, upperBound: eqGainMaxDB)
+}
+
 // MARK: - VU
 
 /// Convert linear VU value (0..1) to dB (-80..0)
